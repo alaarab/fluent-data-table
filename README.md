@@ -238,6 +238,20 @@ The full worked example is in the section above (`DataGridTable + IDataGridDataS
   - Fork the SCSS modules in this package if you want a custom theme and publish a themed variant.
 - Consumers must have a build pipeline that understands `.scss` (SPFx already does); JS is tree-shakable but SCSS files are marked as side-effectful so they’re preserved.
 
+### Emphasizing a column (e.g. bold)
+
+The grid does not bold any column by default. To emphasize a column (e.g. make it bold), use `renderCell` to return styled content:
+
+```tsx
+{
+  columnId: 'name',
+  name: 'Name',
+  renderCell: (item) => <strong>{item.name}</strong>,
+}
+```
+
+Or return a span with a class and style it via your own CSS.
+
 ## API Reference
 
 ### Components

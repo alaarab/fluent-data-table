@@ -217,9 +217,7 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
         />
       </div>
 
-      <div style={{ border: '1px solid #e1dfdd', borderRadius: 8, overflow: 'hidden' }}>
-        <DataGridTable<T> {...dataGridProps} />
-      </div>
+      <DataGridTable<T> {...dataGridProps} />
 
       <PaginationControls
         currentPage={page}

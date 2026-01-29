@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import {
   DataGrid,
   DataGridHeader,
@@ -62,19 +62,37 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
     emptyState,
   } = props;
 
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const w = el.getBoundingClientRect().width;
+      setContainerWidth(w);
+    });
+    ro.observe(el);
+    setContainerWidth(el.getBoundingClientRect().width);
+    return () => ro.disconnect();
+  }, []);
+
+  const visibleColumnCount = (visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns).length;
   const columnSizingOptions: TableColumnSizingOptions = useMemo(() => {
+    const cols = visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns;
+    const count = Math.max(1, cols.length);
+    const fillWidth = containerWidth > 0 ? Math.max(80, Math.floor(containerWidth / count)) : undefined;
     const acc: Record<string, { minWidth: number; defaultWidth: number; idealWidth: number }> = {};
-    columns
-      .filter((c) => c.minWidth !== undefined || c.defaultWidth !== undefined)
-      .forEach((c) => {
-        acc[c.columnId] = {
-          minWidth: c.minWidth ?? 80,
-          defaultWidth: c.defaultWidth ?? 120,
-          idealWidth: c.idealWidth ?? c.defaultWidth ?? 120,
-        };
-      });
+    cols.forEach((c) => {
+      const minW = c.minWidth ?? 80;
+      acc[c.columnId] = {
+        minWidth: minW,
+        defaultWidth: c.defaultWidth ?? fillWidth ?? 120,
+        idealWidth: c.idealWidth ?? c.defaultWidth ?? fillWidth ?? 120,
+      };
+    });
     return acc;
-  }, [columns]);
+  }, [columns, visibleColumns, containerWidth]);
 
   const createHeaderWithFilter = useCallback(
     (col: IColumnDef<T>): React.ReactElement => {
@@ -175,32 +193,39 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
   const showEmptyInGrid = items.length === 0 && emptyState;
 
   return (
-    <div className={styles.tableWrapper} data-empty={showEmptyInGrid ? 'true' : undefined}>
+    <div
+      ref={wrapperRef}
+      className={styles.tableWrapper}
+      data-empty={showEmptyInGrid ? 'true' : undefined}
+      data-column-count={visibleColumnCount}
+      style={{ ['--data-table-column-count' as string]: visibleColumnCount }}
+    >
       <div className={styles.tableScrollContent}>
-        <DataGrid
-          items={items}
-          columns={fluentColumns}
-          resizableColumns
-          resizableColumnsOptions={{ autoFitColumns: false }}
-          columnSizingOptions={columnSizingOptions}
-          getRowId={getRowId}
-          focusMode="composite"
-          className={styles.dataGrid}
-          style={{ minWidth: 'max-content' }}
-        >
-          <DataGridHeader>
-            <DataGridRow>
-              {({ renderHeaderCell }) => <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>}
-            </DataGridRow>
-          </DataGridHeader>
-          <DataGridBody<T>>
-            {({ item, rowId }) => (
-              <DataGridRow<T> key={rowId}>
-                {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
+        <div className={styles.tableWidthAnchor}>
+          <DataGrid
+            items={items}
+            columns={fluentColumns}
+            resizableColumns
+            resizableColumnsOptions={{ autoFitColumns: true }}
+            columnSizingOptions={columnSizingOptions}
+            getRowId={getRowId}
+            focusMode="composite"
+            className={styles.dataGrid}
+          >
+            <DataGridHeader>
+              <DataGridRow>
+                {({ renderHeaderCell }) => <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>}
               </DataGridRow>
-            )}
-          </DataGridBody>
-        </DataGrid>
+            </DataGridHeader>
+            <DataGridBody<T>>
+              {({ item, rowId }) => (
+                <DataGridRow<T> key={rowId}>
+                  {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
+                </DataGridRow>
+              )}
+            </DataGridBody>
+          </DataGrid>
+        </div>
         {showEmptyInGrid && emptyState && (
           <div className={styles.emptyStateInGrid}>
             <div className={styles.emptyStateInGridMessageSticky}>

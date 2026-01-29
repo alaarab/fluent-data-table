@@ -1,36 +1,61 @@
 .tableScrollContent {
   display: flex;
   flex-direction: column;
-  width: max-content;
+  width: 100%;
 }
 
-.tableWrapper[data-empty='true'] .tableScrollContent {
-  min-width: 100%;
+.tableWidthAnchor {
+  width: 100%;
+  min-width: 0;
 }
 
+/* Always use full container width (matches pagination); columns fill the space */
 .tableWrapper {
   overflow-x: auto;
   overflow-y: visible;
   width: 100%;
+  max-width: 100%;
   margin-bottom: 15px;
   border-radius: var(--borderRadiusMedium, 4px);
-  background-color: var(--colorNeutralBackground1, #ffffff);
+  box-sizing: border-box;
+  /* Symmetric border: single 1px on all sides, no doubling on right */
   border: 1px solid var(--colorNeutralStroke2, #e0e0e0);
   -webkit-overflow-scrolling: touch;
 
-  :global {
+  /* Empty state: no horizontal scroll – can't scroll right into white space */
+  &[data-empty='true'] {
+    overflow-x: hidden;
+  }
+
+  /* Scoped by data-column-count so our overrides apply; variable is set on this wrapper */
+  &[data-column-count] :global {
+    /* Grid fills full width so table extends to the right edge */
     .fui-DataGrid {
-      min-width: max-content !important;
-      width: max-content !important;
+      width: 100% !important;
+      min-width: 100% !important;
+      box-sizing: border-box !important;
+      border: none !important;
     }
 
-    .fui-DataGridRow {
-      min-width: max-content !important;
+    /* Table fills container; fixed layout so initial equal column widths apply */
+    .fui-DataGrid .fui-Table {
+      width: 100% !important;
+      table-layout: fixed !important;
+      box-sizing: border-box !important;
+      border: none !important;
+      outline: none !important;
     }
 
     .fui-DataGridHeader {
-      min-width: max-content !important;
       background-color: var(--colorSubtleBackgroundSelected, #f3f2f1);
+    }
+
+    /* Initial load: columns uniformly fill space; width has no !important so Fluent resize inline styles override */
+    .fui-DataGridHeaderCell,
+    .fui-DataGridCell {
+      width: calc(100% / var(--data-table-column-count, 1));
+      min-width: 80px !important;
+      box-sizing: border-box !important;
     }
 
     .fui-DataGridHeaderCell {
@@ -38,9 +63,14 @@
       white-space: nowrap !important;
       position: relative;
       background-color: var(--colorSubtleBackgroundSelected, #f3f2f1);
-      // padding: 10px 18px 10px 12px;
       font-size: 14px;
       border-right: 1px solid var(--colorNeutralStroke1, #c4c4c4);
+    }
+
+    /* No extra right border on last column – wrapper provides right edge (row may have trailing <i> so use last-of-type) */
+    .fui-DataGridHeader .fui-DataGridRow .fui-DataGridHeaderCell:last-of-type,
+    .fui-DataGridBody .fui-DataGridRow .fui-DataGridCell:last-of-type {
+      border-right: none !important;
     }
 
     .fui-DataGridCell {
@@ -49,8 +79,6 @@
       text-overflow: ellipsis !important;
       white-space: nowrap !important;
       font-size: 12px;
-      /* Match header padding and border so column content aligns with headers */
-      // padding: 10px 18px 10px 12px;
       border-right: 1px solid var(--colorNeutralStroke1, #c4c4c4);
 
       .fui-TableCellLayout {
@@ -69,8 +97,17 @@
       z-index: 1 !important;
     }
 
-    .fui-DataGridRow .fui-DataGridCell:first-child {
-      font-weight: 600 !important;
+    /* Hide resize handle on last column to prevent dragging and creating empty space on the right */
+    .fui-DataGridHeader .fui-DataGridRow .fui-DataGridHeaderCell:last-of-type .fui-DataGridHeaderCell__aside {
+      display: none !important;
+    }
+
+    /* No extra bottom border: last row (row + cells) – wrapper provides bottom edge so no double line */
+    .fui-DataGridBody .fui-DataGridRow:last-child {
+      border-bottom: none !important;
+    }
+    .fui-DataGridBody .fui-DataGridRow:last-child .fui-DataGridCell {
+      border-bottom: none !important;
     }
 
     .fui-Link {
@@ -91,7 +128,7 @@
 }
 
 .dataGrid {
-  min-width: max-content;
+  min-width: 0;
 }
 
 .emptyStateInGrid {
@@ -100,9 +137,10 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 40px 24px;
-  min-height: 140px;
-  min-width: 100%;
+  padding: 20px 16px;
+  min-height: 88px;
+  min-width: 0;
+  width: 100%;
   border-top: 1px solid var(--colorNeutralStroke2, #e0e0e0);
   background-color: var(--colorNeutralBackground2, #fafafa);
 }
@@ -118,22 +156,22 @@
 }
 
 .emptyStateInGridIcon {
-  font-size: 32px;
-  margin-bottom: 12px;
+  font-size: 24px;
+  margin-bottom: 8px;
   opacity: 0.6;
 }
 
 .emptyStateInGridTitle {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--colorNeutralForeground1, #242424);
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .emptyStateInGridMessage {
   font-size: 13px;
   color: var(--colorNeutralForeground2, #616161);
-  max-width: 420px;
+  max-width: 100%;
   line-height: 1.5;
 }
 
@@ -152,6 +190,12 @@
   }
 }
 
+/* Empty state: hide body, keep header and empty message */
 .tableWrapper[data-empty='true'] :global(.fui-DataGrid) tbody {
   display: none;
+}
+
+/* Empty state: no extra bottom border (header row is last row, remove its border-bottom) */
+.tableWrapper[data-empty='true'] :global(.fui-DataGridHeader .fui-DataGridRow) {
+  border-bottom: none !important;
 }

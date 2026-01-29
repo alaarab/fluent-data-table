@@ -128,3 +128,116 @@ export const LargePageSize: Story = {
     </div>
   ),
 };
+
+// --- Wide table: 10 and 20 columns ---
+interface WideRow {
+  id: string;
+  project: string;
+  owner: string;
+  status: string;
+  budget: number;
+  region: string;
+  startDate: string;
+  endDate: string;
+  priority: string;
+  category: string;
+  progress: number;
+  costCenter: string;
+  sponsor: string;
+  risk: string;
+  phase: string;
+  milestone: string;
+  vendor: string;
+  contract: string;
+  notes: string;
+  tags: string;
+}
+
+const wideRows: WideRow[] = Array.from({ length: 15 }, (_, i) => {
+  const statuses = ['Active', 'On Hold', 'Closed'];
+  const regions = ['Americas', 'EMEA', 'APAC'];
+  const priorities = ['High', 'Medium', 'Low'];
+  const categories = ['Engineering', 'Marketing', 'Operations', 'Sales'];
+  const risks = ['Low', 'Medium', 'High'];
+  const phases = ['Discovery', 'Design', 'Build', 'Launch', 'Support'];
+  return {
+    id: String(i + 1),
+    project: `Project ${String.fromCharCode(65 + (i % 26))}${i + 1}`,
+    owner: `Owner ${i + 1}`,
+    status: statuses[i % 3],
+    budget: 50000 + i * 12000,
+    region: regions[i % 3],
+    startDate: `2024-0${(i % 9) + 1}-01`,
+    endDate: `2025-0${(i % 9) + 1}-15`,
+    priority: priorities[i % 3],
+    category: categories[i % 4],
+    progress: 10 + (i % 9) * 10,
+    costCenter: `CC-${1000 + i}`,
+    sponsor: `Sponsor ${i + 1}`,
+    risk: risks[i % 3],
+    phase: phases[i % 5],
+    milestone: `M${i + 1}`,
+    vendor: `Vendor ${(i % 5) + 1}`,
+    contract: `CON-${2024 + (i % 2)}`,
+    notes: `Notes for row ${i + 1}`,
+    tags: `tag${i % 3 + 1}`,
+  };
+});
+
+const wideColumns10: IColumnDef<WideRow>[] = [
+  { columnId: 'project', name: 'Project', sortable: true, required: true, filterable: { type: 'text' }, renderCell: (r) => <span>{r.project}</span> },
+  { columnId: 'owner', name: 'Owner', sortable: true, filterable: { type: 'text' }, renderCell: (r) => <span>{r.owner}</span> },
+  { columnId: 'status', name: 'Status', sortable: true, filterable: { type: 'multiSelect', filterField: 'status' }, renderCell: (r) => <span>{r.status}</span> },
+  { columnId: 'budget', name: 'Budget', sortable: true, renderCell: (r) => <span>${r.budget.toLocaleString()}</span> },
+  { columnId: 'region', name: 'Region', sortable: true, filterable: { type: 'multiSelect', filterField: 'region' }, renderCell: (r) => <span>{r.region}</span> },
+  { columnId: 'startDate', name: 'Start', sortable: true, renderCell: (r) => <span>{r.startDate}</span> },
+  { columnId: 'endDate', name: 'End', sortable: true, renderCell: (r) => <span>{r.endDate}</span> },
+  { columnId: 'priority', name: 'Priority', sortable: true, renderCell: (r) => <span>{r.priority}</span> },
+  { columnId: 'category', name: 'Category', sortable: true, renderCell: (r) => <span>{r.category}</span> },
+  { columnId: 'progress', name: 'Progress %', sortable: true, renderCell: (r) => <span>{r.progress}%</span> },
+];
+
+const wideColumns20: IColumnDef<WideRow>[] = [
+  ...wideColumns10,
+  { columnId: 'costCenter', name: 'Cost Center', sortable: true, renderCell: (r) => <span>{r.costCenter}</span> },
+  { columnId: 'sponsor', name: 'Sponsor', sortable: true, renderCell: (r) => <span>{r.sponsor}</span> },
+  { columnId: 'risk', name: 'Risk', sortable: true, renderCell: (r) => <span>{r.risk}</span> },
+  { columnId: 'phase', name: 'Phase', sortable: true, renderCell: (r) => <span>{r.phase}</span> },
+  { columnId: 'milestone', name: 'Milestone', sortable: true, renderCell: (r) => <span>{r.milestone}</span> },
+  { columnId: 'vendor', name: 'Vendor', sortable: true, renderCell: (r) => <span>{r.vendor}</span> },
+  { columnId: 'contract', name: 'Contract', sortable: true, renderCell: (r) => <span>{r.contract}</span> },
+  { columnId: 'notes', name: 'Notes', sortable: true, renderCell: (r) => <span>{r.notes}</span> },
+  { columnId: 'tags', name: 'Tags', sortable: true, renderCell: (r) => <span>{r.tags}</span> },
+];
+
+export const TenColumns: Story = {
+  render: () => (
+    <div style={{ padding: 16 }}>
+      <FluentDataTable<WideRow>
+        items={wideRows}
+        columns={wideColumns10}
+        getRowId={(r) => r.id}
+        filterOptions={{ status: ['Active', 'On Hold', 'Closed'], region: ['Americas', 'EMEA', 'APAC'] }}
+        entityLabelPlural="rows"
+        defaultPageSize={10}
+        title={<h3 style={{ margin: 0 }}>FluentDataTable — 10 columns</h3>}
+      />
+    </div>
+  ),
+};
+
+export const TwentyColumns: Story = {
+  render: () => (
+    <div style={{ padding: 16 }}>
+      <FluentDataTable<WideRow>
+        items={wideRows}
+        columns={wideColumns20}
+        getRowId={(r) => r.id}
+        filterOptions={{ status: ['Active', 'On Hold', 'Closed'], region: ['Americas', 'EMEA', 'APAC'] }}
+        entityLabelPlural="rows"
+        defaultPageSize={10}
+        title={<h3 style={{ margin: 0 }}>FluentDataTable — 20 columns</h3>}
+      />
+    </div>
+  ),
+};
