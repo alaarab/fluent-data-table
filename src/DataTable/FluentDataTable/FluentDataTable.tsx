@@ -55,9 +55,12 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
 
   const [sortBy, setSortBy] = useState<string | undefined>(() => columns[0]?.columnId);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(
-    () => new Set(columns.map((c) => c.columnId))
-  );
+  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
+    const visible = columns
+      .filter((c) => c.defaultVisible !== false)
+      .map((c) => c.columnId);
+    return new Set(visible.length > 0 ? visible : columns.map((c) => c.columnId));
+  });
   const [multiSelectFilters, setMultiSelectFilters] = useState<Record<string, string[]>>({});
   const [textFilters, setTextFilters] = useState<Record<string, string>>({});
   const [peopleFilters, setPeopleFilters] = useState<Record<string, UserLike | undefined>>({});

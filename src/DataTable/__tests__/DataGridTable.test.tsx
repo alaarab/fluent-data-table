@@ -54,7 +54,7 @@ describe('DataGridTable', () => {
     const onColumnSort = jest.fn();
     renderTable({ onColumnSort });
 
-    const headerButton = screen.getByRole('button', { name: /name/i });
+    const headerButton = screen.getByRole('button', { name: /sort by name/i });
     fireEvent.click(headerButton);
 
     expect(onColumnSort).toHaveBeenCalledWith('name');

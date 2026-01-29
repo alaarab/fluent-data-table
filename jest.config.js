@@ -29,7 +29,11 @@ module.exports = {
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '^rtl-css-js/core$': '<rootDir>/jest-mocks/rtl-css-js-core.cjs.js',
-      },
+    '^@fluentui/react-components$': '<rootDir>/jest-mocks/fluent-react-components.cjs.js',
+    '^@fluentui/react-accordion(.*)$': '<rootDir>/jest-mocks/fluent-accordion.cjs.js',
+    '^@fluentui/react-avatar(.*)$': '<rootDir>/jest-mocks/fluent-avatar.cjs.js',
+    '^@fluentui/react-badge(.*)$': '<rootDir>/jest-mocks/fluent-badge.cjs.js',
+  },
   collectCoverageFrom: [
     'src/**/*.{ts,tsx}',
     '!src/**/*.d.ts',

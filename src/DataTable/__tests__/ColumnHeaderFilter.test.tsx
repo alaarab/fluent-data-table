@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ColumnHeaderFilter } from '../ColumnHeaderFilter/ColumnHeaderFilter';
 import type { UserLike } from '../dataGridTypes';
 
@@ -85,13 +85,16 @@ describe('ColumnHeaderFilter', () => {
     const input = screen.getByPlaceholderText(/search for a person/i);
     fireEvent.change(input, { target: { value: 'ali' } });
 
-    jest.advanceTimersByTime(350);
+    await act(async () => {
+      jest.advanceTimersByTime(350);
+      await Promise.resolve();
+    });
 
     await waitFor(() => {
       expect(peopleSearch).toHaveBeenCalledWith('ali');
     });
 
-    const suggestion = await screen.findByText('Alice Johnson');
+    const [suggestion] = await screen.findAllByText('Alice Johnson');
     fireEvent.click(suggestion);
 
     expect(onUserChange).toHaveBeenCalledWith(

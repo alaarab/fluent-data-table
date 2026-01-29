@@ -37,7 +37,7 @@ export function useFilterOptions(
 
     setFilterOptions(results);
     setLoadingOptions({});
-  }, [dataSource, fields.join(',')]);
+  }, [dataSource, fields.slice().sort().join(',')]);
 
   useEffect(() => {
     load().catch(console.error);
