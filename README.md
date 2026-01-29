@@ -66,7 +66,7 @@ function ProductTable() {
 }
 ```
 
-For server-side data or full control, use `DataGridTable`, `ColumnChooser`, and `PaginationControls` with your own state and `IDataGridDataSource<T>`. See [src/DataTable/README.md](src/DataTable/README.md) for the full API.
+For server-side data or full control, use `DataGridTable`, `ColumnChooser`, and `PaginationControls` with your own state and `IDataGridDataSource<T>`. The sections below show how to wire this to your API and list the full API surface.
 
 <details>
 <summary>DataGridTable + IDataGridDataSource (server-side)</summary>
@@ -174,6 +174,33 @@ function ProductTable() {
 ```
 
 </details>
+
+## Connecting to your API (server-side)
+
+- **Implement `IDataGridDataSource<T>`**: your adapter around whatever backend you use (REST, Graph, etc.). Implement `getPage(params)` and optionally `getFilterOptions(field)`, `peopleSearch(query)`, `getUserByEmail(email)`.
+- **Map `params` to your query**: `page`, `pageSize`, `sortBy`, `sortDirection`, and `filters` come from the grid; you translate them into query params or a request body.
+- **Return `{ items, totalCount }`**: `items` is the current page of rows, `totalCount` is the total number of rows on the server so pagination can be computed.
+
+Example shape:
+
+```ts
+const dataSource: IDataGridDataSource<Project> = {
+  async getPage({ page, pageSize, sortBy, sortDirection, filters }) {
+    const query = new URLSearchParams({
+      page: String(page),
+      pageSize: String(pageSize),
+      sortBy: sortBy ?? '',
+      sortDirection,
+      status: (filters.status ?? []).join(','),
+    });
+
+    const res = await fetch(`/api/projects?${query.toString()}`);
+    return res.json(); // { items: Project[], totalCount: number }
+  },
+};
+```
+
+The full worked example is in the section above (`DataGridTable + IDataGridDataSource`).
 
 ## Filtering patterns
 
