@@ -1,0 +1,157 @@
+.tableScrollContent {
+  display: flex;
+  flex-direction: column;
+  width: max-content;
+}
+
+.tableWrapper[data-empty='true'] .tableScrollContent {
+  min-width: 100%;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+  width: 100%;
+  margin-bottom: 15px;
+  border-radius: var(--borderRadiusMedium, 4px);
+  background-color: var(--colorNeutralBackground1, #ffffff);
+  border: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+  -webkit-overflow-scrolling: touch;
+
+  :global {
+    .fui-DataGrid {
+      min-width: max-content !important;
+      width: max-content !important;
+    }
+
+    .fui-DataGridRow {
+      min-width: max-content !important;
+    }
+
+    .fui-DataGridHeader {
+      min-width: max-content !important;
+      background-color: var(--colorSubtleBackgroundSelected, #f3f2f1);
+    }
+
+    .fui-DataGridHeaderCell {
+      min-width: 80px;
+      white-space: nowrap !important;
+      position: relative;
+      background-color: var(--colorSubtleBackgroundSelected, #f3f2f1);
+      // padding: 10px 18px 10px 12px;
+      font-size: 14px;
+      border-right: 1px solid var(--colorNeutralStroke1, #c4c4c4);
+    }
+
+    .fui-DataGridCell {
+      min-width: 80px;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+      white-space: nowrap !important;
+      font-size: 12px;
+      /* Match header padding and border so column content aligns with headers */
+      // padding: 10px 18px 10px 12px;
+      border-right: 1px solid var(--colorNeutralStroke1, #c4c4c4);
+
+      .fui-TableCellLayout {
+        font-size: 12px;
+      }
+    }
+
+    .fui-DataGridHeaderCell__aside {
+      display: flex !important;
+      cursor: col-resize !important;
+      position: absolute !important;
+      right: 0 !important;
+      top: 0 !important;
+      bottom: 0 !important;
+      width: 16px !important;
+      z-index: 1 !important;
+    }
+
+    .fui-DataGridRow .fui-DataGridCell:first-child {
+      font-weight: 600 !important;
+    }
+
+    .fui-Link {
+      color: #0f6cbd !important;
+      font-weight: 600 !important;
+      text-decoration: none !important;
+
+      &:hover {
+        text-decoration: underline !important;
+        color: #115ea3 !important;
+      }
+
+      &:active {
+        color: #0c3b5e !important;
+      }
+    }
+  }
+}
+
+.dataGrid {
+  min-width: max-content;
+}
+
+.emptyStateInGrid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  min-height: 140px;
+  min-width: 100%;
+  border-top: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+  background-color: var(--colorNeutralBackground2, #fafafa);
+}
+
+.emptyStateInGridMessageSticky {
+  position: sticky;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.emptyStateInGridIcon {
+  font-size: 32px;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
+
+.emptyStateInGridTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--colorNeutralForeground1, #242424);
+  margin-bottom: 8px;
+}
+
+.emptyStateInGridMessage {
+  font-size: 13px;
+  color: var(--colorNeutralForeground2, #616161);
+  max-width: 420px;
+  line-height: 1.5;
+}
+
+.emptyStateInGridLink {
+  background: none;
+  border: none;
+  color: var(--colorBrandForeground1, #0f6cbd);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  font-family: inherit;
+
+  &:hover {
+    color: var(--colorBrandForeground1Hover, #115ea3);
+  }
+}
+
+.tableWrapper[data-empty='true'] :global(.fui-DataGrid) tbody {
+  display: none;
+}
