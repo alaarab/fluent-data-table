@@ -2,11 +2,21 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-width: 0;
+  /* Match wrapper so any gap to the right is not transparent (no purple stripe showing through) */
+  background-color: var(--colorNeutralBackground1, #ffffff);
 }
 
 .tableWidthAnchor {
+  /* When table fits (data-auto-fit): fill 100% so last column gets space. When overflow: size to content for scroll. */
+  width: max-content;
+  min-width: max(100%, var(--data-table-total-min-width, 0px));
+  background-color: var(--colorNeutralBackground1, #ffffff);
+}
+
+/* When table fits in container: fill full width so columns (including Tags) use the space, no dead zone on the right */
+.tableWrapper[data-auto-fit='true'] .tableWidthAnchor {
   width: 100%;
-  min-width: 0;
 }
 
 /* Always use full container width (matches pagination); columns fill the space */
@@ -18,6 +28,8 @@
   margin-bottom: 15px;
   border-radius: var(--borderRadiusMedium, 4px);
   box-sizing: border-box;
+  /* Solid background so no stripe/canvas shows through to the right of the table */
+  background-color: var(--colorNeutralBackground1, #ffffff);
   /* Symmetric border: single 1px on all sides, no doubling on right */
   border: 1px solid var(--colorNeutralStroke2, #e0e0e0);
   -webkit-overflow-scrolling: touch;
@@ -29,37 +41,43 @@
 
   /* Scoped by data-column-count so our overrides apply; variable is set on this wrapper */
   &[data-column-count] :global {
-    /* Grid fills full width so table extends to the right edge */
+    /* Default (overflow): size to content for scroll. When data-auto-fit: table fills 100% so last column isn’t tiny. */
     .fui-DataGrid {
-      width: 100% !important;
       min-width: 100% !important;
+      width: fit-content !important;
       box-sizing: border-box !important;
       border: none !important;
     }
 
-    /* Table fills container; fixed layout so initial equal column widths apply */
     .fui-DataGrid .fui-Table {
-      width: 100% !important;
+      min-width: 100% !important;
+      width: fit-content !important;
       table-layout: fixed !important;
       box-sizing: border-box !important;
       border: none !important;
       outline: none !important;
     }
 
+    /* Rows span full table width */
+    .fui-DataGrid .fui-TableRow,
+    .fui-DataGrid .fui-DataGridRow {
+      width: 100% !important;
+      min-width: 100% !important;
+    }
+
     .fui-DataGridHeader {
       background-color: var(--colorSubtleBackgroundSelected, #f3f2f1);
     }
 
-    /* Initial load: columns uniformly fill space; width has no !important so Fluent resize inline styles override */
+    /* Let Fluent control column width (inline styles from resize/columnSizingOptions); we only enforce min-width so columns don’t scrunch */
     .fui-DataGridHeaderCell,
     .fui-DataGridCell {
-      width: calc(100% / var(--data-table-column-count, 1));
-      min-width: 80px !important;
+      min-width: var(--data-table-cell-min-width, 80px) !important;
       box-sizing: border-box !important;
     }
 
     .fui-DataGridHeaderCell {
-      min-width: 80px;
+      min-width: var(--data-table-cell-min-width, 80px);
       white-space: nowrap !important;
       position: relative;
       background-color: var(--colorSubtleBackgroundSelected, #f3f2f1);
@@ -74,7 +92,7 @@
     }
 
     .fui-DataGridCell {
-      min-width: 80px;
+      min-width: var(--data-table-cell-min-width, 80px);
       overflow: hidden !important;
       text-overflow: ellipsis !important;
       white-space: nowrap !important;
@@ -86,6 +104,7 @@
       }
     }
 
+    /* Resize handle: contained so focus ring doesn’t create a purple stripe to the right */
     .fui-DataGridHeaderCell__aside {
       display: flex !important;
       cursor: col-resize !important;
@@ -95,11 +114,13 @@
       bottom: 0 !important;
       width: 16px !important;
       z-index: 1 !important;
+      outline: none !important;
+      border-radius: 0 !important;
     }
 
-    /* Hide resize handle on last column to prevent dragging and creating empty space on the right */
-    .fui-DataGridHeader .fui-DataGridRow .fui-DataGridHeaderCell:last-of-type .fui-DataGridHeaderCell__aside {
-      display: none !important;
+    .fui-DataGridHeaderCell__aside:focus-visible {
+      outline: 2px solid var(--colorStrokeFocus2) !important;
+      outline-offset: -2px !important;
     }
 
     /* No extra bottom border: last row (row + cells) – wrapper provides bottom edge so no double line */
@@ -124,6 +145,31 @@
         color: #0c3b5e !important;
       }
     }
+  }
+
+  /* When table fits: fill 100% and distribute column width evenly so last column (e.g. Tags) isn't tiny */
+  &[data-auto-fit='true'][data-column-count] :global {
+    .fui-DataGrid {
+      width: 100% !important;
+    }
+    .fui-DataGrid .fui-Table {
+      width: 100% !important;
+    }
+    /* Equal base width for all columns; last column gets remainder so it extends to the right edge (no dead strip) */
+    .fui-DataGridHeaderCell:not(:last-of-type),
+    .fui-DataGridCell:not(:last-of-type) {
+      width: calc(100% / var(--data-table-column-count, 1)) !important;
+    }
+    .fui-DataGridHeader .fui-DataGridRow .fui-DataGridHeaderCell:last-of-type,
+    .fui-DataGridBody .fui-DataGridRow .fui-DataGridCell:last-of-type {
+      min-width: calc(100% / var(--data-table-column-count, 1)) !important;
+      width: auto !important;
+    }
+  }
+
+  /* Hide resize handle on last column only when table fits (autoFitColumns); when overflow/scroll, last column can resize (Fluent docs) */
+  &[data-column-count][data-auto-fit='true'] :global(.fui-DataGridHeader .fui-DataGridRow .fui-DataGridHeaderCell:last-of-type .fui-DataGridHeaderCell__aside) {
+    display: none !important;
   }
 }
 

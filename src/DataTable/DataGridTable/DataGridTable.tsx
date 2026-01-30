@@ -38,6 +38,10 @@ export interface IDataGridTableProps<T> {
   getUserByEmail?: (email: string) => Promise<UserLike | undefined>;
 
   emptyState?: { onClearAll: () => void; hasActiveFilters: boolean };
+
+  /** Accessible name when no visible label (Fluent best practice). Use aria-labelledby if preceded by a heading. */
+  'aria-label'?: string;
+  'aria-labelledby'?: string;
 }
 
 export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElement {
@@ -60,6 +64,8 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
     peopleSearch,
     getUserByEmail,
     emptyState,
+    'aria-label': ariaLabel,
+    'aria-labelledby': ariaLabelledBy,
   } = props;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -81,18 +87,31 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
   const columnSizingOptions: TableColumnSizingOptions = useMemo(() => {
     const cols = visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns;
     const count = Math.max(1, cols.length);
-    const fillWidth = containerWidth > 0 ? Math.max(80, Math.floor(containerWidth / count)) : undefined;
+    const fillWidth =
+      containerWidth > 0 ? Math.floor(containerWidth / count) : undefined;
+    const minCol = 80;
     const acc: Record<string, { minWidth: number; defaultWidth: number; idealWidth: number }> = {};
     cols.forEach((c) => {
-      const minW = c.minWidth ?? 80;
+      const colMin = c.minWidth ?? minCol;
+      const fill = fillWidth ?? 120;
+      const defaultW = c.defaultWidth ?? Math.max(minCol, fill);
+      const idealW = c.idealWidth ?? c.defaultWidth ?? Math.max(minCol, fill);
       acc[c.columnId] = {
-        minWidth: minW,
-        defaultWidth: c.defaultWidth ?? fillWidth ?? 120,
-        idealWidth: c.idealWidth ?? c.defaultWidth ?? fillWidth ?? 120,
+        minWidth: colMin,
+        defaultWidth: Math.max(colMin, defaultW),
+        idealWidth: Math.max(colMin, idealW),
       };
     });
     return acc;
   }, [columns, visibleColumns, containerWidth]);
+
+  /** Sum of column min-widths so the scroll container can extend and allow horizontal scroll (Fluent best practice: min-width for high zoom/small screens). */
+  const totalColumnMinWidth = useMemo(() => {
+    return Object.values(columnSizingOptions).reduce(
+      (sum, opt) => sum + (typeof opt === 'object' && opt?.minWidth != null ? opt.minWidth : 0),
+      0,
+    );
+  }, [columnSizingOptions]);
 
   const createHeaderWithFilter = useCallback(
     (col: IColumnDef<T>): React.ReactElement => {
@@ -196,9 +215,17 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
     <div
       ref={wrapperRef}
       className={styles.tableWrapper}
+      role="region"
+      aria-label={ariaLabel ?? (ariaLabelledBy ? undefined : 'Data grid')}
+      aria-labelledby={ariaLabelledBy}
       data-empty={showEmptyInGrid ? 'true' : undefined}
       data-column-count={visibleColumnCount}
-      style={{ ['--data-table-column-count' as string]: visibleColumnCount }}
+      data-auto-fit={totalColumnMinWidth <= containerWidth ? 'true' : undefined}
+      style={{
+        ['--data-table-column-count' as string]: visibleColumnCount,
+        ['--data-table-cell-min-width' as string]: 80,
+        ['--data-table-total-min-width' as string]: totalColumnMinWidth ? `${totalColumnMinWidth}px` : undefined,
+      }}
     >
       <div className={styles.tableScrollContent}>
         <div className={styles.tableWidthAnchor}>
@@ -206,7 +233,10 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
             items={items}
             columns={fluentColumns}
             resizableColumns
-            resizableColumnsOptions={{ autoFitColumns: true }}
+            resizableColumnsOptions={{
+              // When columns don't fit, allow overflow so user can scroll right to last columns (Fluent docs: autoFitColumns: false enables scroll)
+              autoFitColumns: totalColumnMinWidth <= containerWidth,
+            }}
             columnSizingOptions={columnSizingOptions}
             getRowId={getRowId}
             focusMode="composite"

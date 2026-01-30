@@ -13,6 +13,15 @@ Full-featured, generic data table component built on [Fluent UI DataGrid](https:
 - **Generic Types** - Works with any data type `<T>`
 - **Data Source Pattern** - Host provides `IDataGridDataSource<T>` adapter for API integration
 
+### Accessibility & best practices (Fluent DataGrid)
+
+This component follows [Fluent UI DataGrid best practices](https://react.fluentui.dev/?path=/docs/components-datagrid--default):
+
+- **Always include a header row** – The grid always renders `DataGridHeader`.
+- **Accessible name** – Use `aria-label` on the grid when there is no visible label, or `aria-labelledby` when preceded by a heading. Pass these to `DataGridTable` as `aria-label` / `aria-labelledby`.
+- **Min-width** – Column and table min-widths are set so the grid displays correctly at high zoom and on small screens; when columns don’t fit, the table scrolls horizontally so you can reach the last columns.
+- **Wide tables** – When total column min-width exceeds the container, the grid uses horizontal overflow (scroll) and the last column’s resize handle is available; when the table fits, the last resize handle is hidden to avoid empty space.
+
 ## Installation
 
 Install from npm:

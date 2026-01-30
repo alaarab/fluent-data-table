@@ -14,7 +14,6 @@
   },
   "scripts": {
     "build": "rimraf dist && tsc -p tsconfig.build.json && node scripts/compile-styles.js",
-    "prepare": "npm run build",
     "test": "jest --testPathPattern=exportToCsv --testPathPattern=useFilterOptions",
     "test:all": "jest",
     "test:watch": "jest --watch",
