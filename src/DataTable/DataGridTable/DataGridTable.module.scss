@@ -11,7 +11,8 @@
 
 /* Always use full container width (matches pagination); columns fill the space */
 .tableWrapper {
-  overflow-x: auto;
+  /* Default: no horizontal scroll unless we explicitly allow overflow (wide tables). */
+  overflow-x: hidden;
   overflow-y: visible;
   width: 100%;
   max-width: 100%;
@@ -21,6 +22,11 @@
   /* Symmetric border: single 1px on all sides, no doubling on right */
   border: 1px solid var(--colorNeutralStroke2, #e0e0e0);
   -webkit-overflow-scrolling: touch;
+
+  /* Wide tables: allow horizontal scroll */
+  &[data-overflow-x='true'] {
+    overflow-x: auto;
+  }
 
   /* Empty state: no horizontal scroll – can't scroll right into white space */
   &[data-empty='true'] {
@@ -81,6 +87,11 @@
       white-space: nowrap !important;
       font-size: 12px;
       border-right: 1px solid var(--colorNeutralStroke1, #c4c4c4);
+
+      /* Prevent long unbroken content from forcing intrinsic widths / overlap */
+      > * {
+        min-width: 0;
+      }
 
       .fui-TableCellLayout {
         font-size: 12px;

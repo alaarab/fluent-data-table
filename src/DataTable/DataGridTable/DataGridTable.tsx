@@ -70,24 +70,27 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
 
   const visibleColumnCount = (visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns).length;
 
+  // Fit vs overflow behavior:
+  // - For small tables we want "fits container" (no horizontal scrollbar).
+  // - For wide tables we want overflow + horizontal scroll and a resize handle on the last column.
+  const allowOverflowX = visibleColumnCount > 6;
+
   // Column sizing philosophy:
-  // - Provide reasonable defaults, but do NOT clamp idealWidth to defaultWidth for every column.
-  //   Doing so makes resizing feel like a no-op (columns are effectively fixed).
+  // - Use sane defaults that don't make cells feel huge.
+  // - Keep idealWidth aligned with defaultWidth unless explicitly provided.
   // - Let the user resize freely within minWidth constraints.
   const columnSizingOptions: TableColumnSizingOptions = useMemo(() => {
     const cols = visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns;
     const acc: Record<string, { minWidth: number; defaultWidth?: number; idealWidth?: number }> = {};
 
-    cols.forEach((c, idx) => {
+    cols.forEach((c) => {
       const minW = c.minWidth ?? 80;
-      const defaultW = c.defaultWidth ?? 160;
+      const defaultW = c.defaultWidth ?? 120;
 
       acc[c.columnId] = {
         minWidth: minW,
         defaultWidth: Math.max(minW, defaultW),
-        // If idealWidth isn't provided, avoid forcing it to == defaultWidth.
-        // A slightly larger idealWidth gives the sizing system room and helps last-column fill.
-        idealWidth: c.idealWidth ?? Math.max(Math.max(minW, defaultW), 200) + (idx === cols.length - 1 ? 200 : 0),
+        idealWidth: c.idealWidth ?? Math.max(minW, defaultW),
       };
     });
 
@@ -198,6 +201,7 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
       className={styles.tableWrapper}
       data-empty={showEmptyInGrid ? 'true' : undefined}
       data-column-count={visibleColumnCount}
+      data-overflow-x={allowOverflowX ? 'true' : 'false'}
       style={{ ['--data-table-column-count' as string]: visibleColumnCount }}
     >
       <div className={styles.tableScrollContent}>
@@ -206,8 +210,8 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
             items={items}
             columns={fluentColumns}
             resizableColumns
-            // Avoid auto-fit fighting manual drag-resize.
-            resizableColumnsOptions={{ autoFitColumns: false }}
+            // Small tables should fit the container; wide tables can overflow and scroll.
+            resizableColumnsOptions={{ autoFitColumns: !allowOverflowX }}
             columnSizingOptions={columnSizingOptions}
             getRowId={getRowId}
             focusMode="composite"
