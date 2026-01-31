@@ -37,10 +37,10 @@
       border: none !important;
     }
 
-    /* Table fills container; fixed layout so initial equal column widths apply */
+    /* Table fills container. Use auto layout so Fluent sizing/resize works naturally. */
     .fui-DataGrid .fui-Table {
       width: 100% !important;
-      table-layout: fixed !important;
+      table-layout: auto !important;
       box-sizing: border-box !important;
       border: none !important;
       outline: none !important;
@@ -50,11 +50,12 @@
       background-color: var(--colorSubtleBackgroundSelected, #f3f2f1);
     }
 
-    /* Initial load: columns uniformly fill space; width has no !important so Fluent resize inline styles override */
+    /* Let Fluent's column sizing system own widths (resizableColumns + columnSizingOptions).
+       We only enforce a min-width + sane box sizing. */
     .fui-DataGridHeaderCell,
     .fui-DataGridCell {
-      width: calc(100% / var(--data-table-column-count, 1));
-      min-width: 80px !important;
+      /* Do NOT use !important here: Fluent sets inline width/min/max during resize. */
+      min-width: 80px;
       box-sizing: border-box !important;
     }
 
@@ -97,10 +98,8 @@
       z-index: 1 !important;
     }
 
-    /* Hide resize handle on last column to prevent dragging and creating empty space on the right */
-    .fui-DataGridHeader .fui-DataGridRow .fui-DataGridHeaderCell:last-of-type .fui-DataGridHeaderCell__aside {
-      display: none !important;
-    }
+    /* Keep resize handles consistent (including last column). Avoid special-casing the last column;
+       whitespace issues should be solved via sizing logic, not disabling UX. */
 
     /* No extra bottom border: last row (row + cells) – wrapper provides bottom edge so no double line */
     .fui-DataGridBody .fui-DataGridRow:last-child {

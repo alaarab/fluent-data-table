@@ -63,36 +63,36 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
   } = props;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
 
-  useEffect(() => {
-    const el = wrapperRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => {
-      const w = el.getBoundingClientRect().width;
-      setContainerWidth(w);
-    });
-    ro.observe(el);
-    setContainerWidth(el.getBoundingClientRect().width);
-    return () => ro.disconnect();
-  }, []);
+  // NOTE: We intentionally do NOT recompute columnSizingOptions on container resize.
+  // Fluent's resizing state is internal; re-creating sizing options on every resize
+  // (or Storybook panel resize) effectively "pins" columns and makes drag-resize feel broken.
 
   const visibleColumnCount = (visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns).length;
+
+  // Column sizing philosophy:
+  // - Provide reasonable defaults, but do NOT clamp idealWidth to defaultWidth for every column.
+  //   Doing so makes resizing feel like a no-op (columns are effectively fixed).
+  // - Let the user resize freely within minWidth constraints.
   const columnSizingOptions: TableColumnSizingOptions = useMemo(() => {
     const cols = visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns;
-    const count = Math.max(1, cols.length);
-    const fillWidth = containerWidth > 0 ? Math.max(80, Math.floor(containerWidth / count)) : undefined;
-    const acc: Record<string, { minWidth: number; defaultWidth: number; idealWidth: number }> = {};
-    cols.forEach((c) => {
+    const acc: Record<string, { minWidth: number; defaultWidth?: number; idealWidth?: number }> = {};
+
+    cols.forEach((c, idx) => {
       const minW = c.minWidth ?? 80;
+      const defaultW = c.defaultWidth ?? 160;
+
       acc[c.columnId] = {
         minWidth: minW,
-        defaultWidth: c.defaultWidth ?? fillWidth ?? 120,
-        idealWidth: c.idealWidth ?? c.defaultWidth ?? fillWidth ?? 120,
+        defaultWidth: Math.max(minW, defaultW),
+        // If idealWidth isn't provided, avoid forcing it to == defaultWidth.
+        // A slightly larger idealWidth gives the sizing system room and helps last-column fill.
+        idealWidth: c.idealWidth ?? Math.max(Math.max(minW, defaultW), 200) + (idx === cols.length - 1 ? 200 : 0),
       };
     });
+
     return acc;
-  }, [columns, visibleColumns, containerWidth]);
+  }, [columns, visibleColumns]);
 
   const createHeaderWithFilter = useCallback(
     (col: IColumnDef<T>): React.ReactElement => {
@@ -206,7 +206,8 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
             items={items}
             columns={fluentColumns}
             resizableColumns
-            resizableColumnsOptions={{ autoFitColumns: true }}
+            // Avoid auto-fit fighting manual drag-resize.
+            resizableColumnsOptions={{ autoFitColumns: false }}
             columnSizingOptions={columnSizingOptions}
             getRowId={getRowId}
             focusMode="composite"
