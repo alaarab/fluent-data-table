@@ -70,10 +70,37 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
 
   const visibleColumnCount = (visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns).length;
 
-  // Fit vs overflow behavior:
-  // - For small tables we want "fits container" (no horizontal scrollbar).
-  // - For wide tables we want overflow + horizontal scroll and a resize handle on the last column.
-  const allowOverflowX = visibleColumnCount > 6;
+  // Fit vs overflow behavior ("professional grid" rule):
+  // - Fill container by default, but never squash below per-column minWidth.
+  // - If the container can't fit the sum of min widths (+ padding), allow overflow + horizontal scroll.
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  useEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      // getBoundingClientRect includes borders; subtract them so our "content width" is accurate.
+      const rect = el.getBoundingClientRect();
+      const cs = window.getComputedStyle(el);
+      const borderX = (parseFloat(cs.borderLeftWidth || '0') || 0) + (parseFloat(cs.borderRightWidth || '0') || 0);
+      setContainerWidth(Math.max(0, rect.width - borderX));
+    };
+
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    measure();
+    return () => ro.disconnect();
+  }, []);
+
+  const minTableWidth = useMemo(() => {
+    const cols = visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns;
+    // Fluent's internal math includes per-column padding; default is 16.
+    const PADDING = 16;
+    return cols.reduce((sum, c) => sum + (c.minWidth ?? 80) + PADDING, 0);
+  }, [columns, visibleColumns]);
+
+  const allowOverflowX = containerWidth > 0 && minTableWidth > containerWidth;
 
   // Column sizing philosophy:
   // - Use sane defaults that don't make cells feel huge.
@@ -202,7 +229,12 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
       data-empty={showEmptyInGrid ? 'true' : undefined}
       data-column-count={visibleColumnCount}
       data-overflow-x={allowOverflowX ? 'true' : 'false'}
-      style={{ ['--data-table-column-count' as string]: visibleColumnCount }}
+      data-container-width={containerWidth}
+      data-min-table-width={Math.round(minTableWidth)}
+      style={{
+        ['--data-table-column-count' as string]: visibleColumnCount,
+        ['--data-table-min-width' as string]: allowOverflowX ? `${Math.round(minTableWidth)}px` : '100%',
+      }}
     >
       <div className={styles.tableScrollContent}>
         <div className={styles.tableWidthAnchor}>
