@@ -40,6 +40,10 @@ export interface IDataGridTableProps<T> {
   getUserByEmail?: (email: string) => Promise<UserLike | undefined>;
 
   emptyState?: { onClearAll: () => void; hasActiveFilters: boolean };
+
+  /** Accessible name when no visible label (Fluent best practice). Use aria-labelledby if preceded by a heading. */
+  'aria-label'?: string;
+  'aria-labelledby'?: string;
 }
 
 export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElement {
@@ -154,6 +158,14 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
   }, [columns, visibleColumns, columnSizingOptions]);
 
   const allowOverflowX = containerWidth > 0 && (minTableWidth > containerWidth || desiredTableWidth > containerWidth);
+
+  /** Sum of column min-widths so the scroll container can extend and allow horizontal scroll (Fluent best practice: min-width for high zoom/small screens). */
+  const totalColumnMinWidth = useMemo(() => {
+    return Object.values(columnSizingOptions).reduce(
+      (sum, opt) => sum + (typeof opt === 'object' && opt?.minWidth != null ? opt.minWidth : 0),
+      0,
+    );
+  }, [columnSizingOptions]);
 
   const createHeaderWithFilter = useCallback(
     (col: IColumnDef<T>): React.ReactElement => {
@@ -301,6 +313,9 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
     <div
       ref={wrapperRef}
       className={styles.tableWrapper}
+      role="region"
+      aria-label={ariaLabel ?? (ariaLabelledBy ? undefined : 'Data grid')}
+      aria-labelledby={ariaLabelledBy}
       data-empty={showEmptyInGrid ? 'true' : undefined}
       data-column-count={visibleColumnCount}
       data-overflow-x={allowOverflowX ? 'true' : 'false'}
