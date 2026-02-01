@@ -4,6 +4,69 @@ import { ColumnHeaderFilter } from '../ColumnHeaderFilter/ColumnHeaderFilter';
 import type { UserLike } from '../dataGridTypes';
 
 describe('ColumnHeaderFilter', () => {
+  it('renders no filter button when filterType is none', () => {
+    render(
+      <ColumnHeaderFilter
+        columnKey="id"
+        columnName="ID"
+        filterType="none"
+        onSort={() => undefined}
+      />,
+    );
+    expect(screen.getByRole('button', { name: /sort by id/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /filter id/i })).not.toBeInTheDocument();
+  });
+
+  it('calls onSort when sort button clicked', () => {
+    const onSort = jest.fn();
+    render(
+      <ColumnHeaderFilter
+        columnKey="name"
+        columnName="Name"
+        filterType="none"
+        onSort={onSort}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /sort by name/i }));
+    expect(onSort).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes popover on Escape', () => {
+    render(
+      <ColumnHeaderFilter
+        columnKey="status"
+        columnName="Status"
+        filterType="multiSelect"
+        selectedValues={[]}
+        onFilterChange={() => undefined}
+        options={['Active', 'Closed']}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /filter status/i }));
+    expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByPlaceholderText(/search/i)).not.toBeInTheDocument();
+  });
+
+  it('Clear in multiSelect resets selection and Apply sends it', () => {
+    const onFilterChange = jest.fn();
+    render(
+      <ColumnHeaderFilter
+        columnKey="status"
+        columnName="Status"
+        filterType="multiSelect"
+        selectedValues={['Active']}
+        onFilterChange={onFilterChange}
+        options={['Active', 'Closed']}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /filter status/i }));
+    const clearButtons = screen.getAllByRole('button', { name: /^clear$/i });
+    fireEvent.click(clearButtons[clearButtons.length - 1]);
+    fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    expect(onFilterChange).toHaveBeenCalledWith([]);
+  });
+
   it('applies multi-select filters and calls onFilterChange', () => {
     const onFilterChange = jest.fn();
 

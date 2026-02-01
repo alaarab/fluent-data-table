@@ -39,7 +39,14 @@ export interface IDataGridTableProps<T> {
   peopleSearch?: (query: string) => Promise<UserLike[]>;
   getUserByEmail?: (email: string) => Promise<UserLike | undefined>;
 
-  emptyState?: { onClearAll: () => void; hasActiveFilters: boolean };
+  emptyState?: {
+    onClearAll: () => void;
+    hasActiveFilters: boolean;
+    /** Custom message (replaces default "No results found" / "no items" text). */
+    message?: React.ReactNode;
+    /** Custom empty state content (replaces default message block when provided). */
+    render?: () => React.ReactNode;
+  };
 
   /** Accessible name when no visible label (Fluent best practice). Use aria-labelledby if preceded by a heading. */
   'aria-label'?: string;
@@ -67,6 +74,8 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
     getUserByEmail,
     emptyState,
     layoutMode = 'content',
+    'aria-label': ariaLabel,
+    'aria-labelledby': ariaLabelledBy,
   } = props;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -375,23 +384,31 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
         {showEmptyInGrid && emptyState && (
           <div className={styles.emptyStateInGrid}>
             <div className={styles.emptyStateInGridMessageSticky}>
-              <span className={styles.emptyStateInGridIcon} aria-hidden>
-                📋
-              </span>
-              <div className={styles.emptyStateInGridTitle}>No results found</div>
-              <div className={styles.emptyStateInGridMessage}>
-                {emptyState.hasActiveFilters ? (
-                  <>
-                    No items match your current filters. Try adjusting your search or{' '}
-                    <button type="button" className={styles.emptyStateInGridLink} onClick={emptyState.onClearAll}>
-                      clear all filters
-                    </button>{' '}
-                    to see all items.
-                  </>
-                ) : (
-                  'There are no items available at this time.'
-                )}
-              </div>
+              {emptyState.render ? (
+                emptyState.render()
+              ) : (
+                <>
+                  <span className={styles.emptyStateInGridIcon} aria-hidden>
+                    📋
+                  </span>
+                  <div className={styles.emptyStateInGridTitle}>No results found</div>
+                  <div className={styles.emptyStateInGridMessage}>
+                    {emptyState.message != null ? (
+                      emptyState.message
+                    ) : emptyState.hasActiveFilters ? (
+                      <>
+                        No items match your current filters. Try adjusting your search or{' '}
+                        <button type="button" className={styles.emptyStateInGridLink} onClick={emptyState.onClearAll}>
+                          clear all filters
+                        </button>{' '}
+                        to see all items.
+                      </>
+                    ) : (
+                      'There are no items available at this time.'
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}

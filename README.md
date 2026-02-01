@@ -4,11 +4,12 @@ Full-featured, generic data table component built on [Fluent UI DataGrid](https:
 
 ## Features
 
-- **Sorting** - Click column headers to sort ascending/descending
+- **Sorting** - Click column headers to sort ascending/descending; optional **default sort** (`defaultSortBy` / `defaultSortDirection`) on load
 - **Filtering** - Three filter types: text search, multi-select checkboxes, people picker
 - **Pagination** - Configurable page sizes with first/prev/next/last navigation
 - **Column Visibility** - Show/hide columns via a dropdown chooser
-- **Resizable Columns** - Drag column borders to resize
+- **Resizable Columns** - Drag column borders to resize; **layout mode** (`content` vs `fill`) and per-column **sizing** (`minWidth`, `defaultWidth`, `idealWidth`)
+- **Empty state** - Custom message or full custom content when no results (`emptyStateMessage` / `emptyStateRender` or `emptyState.message` / `emptyState.render`)
 - **CSV Export** - Export visible or all data to CSV
 - **Generic Types** - Works with any data type `<T>`
 - **Data Source Pattern** - Host provides `IDataGridDataSource<T>` adapter for API integration
@@ -76,6 +77,80 @@ function ProductTable() {
 ```
 
 For server-side data or full control, use `DataGridTable`, `ColumnChooser`, and `PaginationControls` with your own state and `IDataGridDataSource<T>`. The sections below show how to wire this to your API and list the full API surface.
+
+## Customizing the grid
+
+Use these props to tailor the grid to your layout and UX (see **Storybook → DataTable/FluentDataTable → Playground** to try them interactively).
+
+### Layout and sizing
+
+- **`layoutMode`** (FluentDataTable and DataGridTable): `'content'` (default) or `'fill'`.
+  - **`content`** – Grid shrinks to content; no giant last column or trailing blank space. Good when the table is narrow or you have few columns.
+  - **`fill`** – Grid fills the container; traditional full-width table. Good when you want columns to share remaining width.
+
+- **Column sizing** (per column in `IColumnDef`): `minWidth`, `defaultWidth`, `idealWidth`.
+  - **`minWidth`** – Minimum allowed width (default 80). Used at high zoom and for horizontal scroll.
+  - **`defaultWidth`** – Initial width (default 120).
+  - **`idealWidth`** – Preferred width for auto-fit. Omit to use `defaultWidth`.
+
+### Initial sort (FluentDataTable)
+
+- **`defaultSortBy`** – Column ID for initial sort. Omit to use the first column.
+- **`defaultSortDirection`** – `'asc'` (default) or `'desc'`.
+
+Example: sort by Budget descending on load:
+
+```tsx
+<FluentDataTable<Project>
+  items={projects}
+  columns={columns}
+  getRowId={(r) => r.id}
+  filterOptions={{ status: ['Active', 'Closed'] }}
+  defaultSortBy="budget"
+  defaultSortDirection="desc"
+  entityLabelPlural="projects"
+/>
+```
+
+### Empty state
+
+When there are no rows, you can customize the message or replace the whole block.
+
+- **FluentDataTable**: `emptyStateMessage` (React node) or `emptyStateRender` (function returning React node). Use `emptyStateMessage` for custom text; use `emptyStateRender` for full control (e.g. "Create item" button).
+- **DataGridTable** (when using the grid directly): `emptyState.message` or `emptyState.render`. Same meaning: custom message vs. custom content.
+
+Example – custom empty message:
+
+```tsx
+<FluentDataTable<Project>
+  ...
+  emptyStateMessage="No projects yet. Create one to get started."
+/>
+```
+
+Example – custom empty block with action:
+
+```tsx
+<FluentDataTable<Project>
+  ...
+  emptyStateRender={() => (
+    <div>
+      <p>No projects match your filters.</p>
+      <button onClick={onClearFilters}>Clear filters</button>
+      <button onClick={onCreate}>Create project</button>
+    </div>
+  )}
+/>
+```
+
+### Other FluentDataTable props
+
+- **`title`** – Optional React node above the grid (e.g. `<h2>Projects</h2>`).
+- **`className`** – CSS class on the wrapper.
+- **`defaultPageSize`** – Initial rows per page (default 20). Page size options are 10, 20, 50, 100.
+- **`entityLabelPlural`** – Label for pagination text (e.g. "Showing 1 to 10 of 50 **projects**"). Default `"items"`.
+
+For a full list of props, see the [API Reference](#api-reference) below.
 
 <details>
 <summary>DataGridTable + IDataGridDataSource (server-side)</summary>
@@ -265,9 +340,32 @@ Or return a span with a class and style it via your own CSS.
 
 ### Components
 
+#### `FluentDataTable<T>`
+
+Full table with column chooser, filters, and pagination. Use for **client-side** data (in-memory list). Sort, filter, and page state are managed internally.
+
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `items` | `T[]` | Yes | Array of data items |
+| `columns` | `IColumnDef<T>[]` | Yes | Column definitions |
+| `getRowId` | `(item: T) => string` | Yes | Function to get unique row ID |
+| `filterOptions` | `Record<string, string[]>` | Yes | Options for multi-select filters (keyed by filter field) |
+| `loadingFilterOptions` | `Record<string, boolean>` | No | Loading state per filter field |
+| `peopleSearch` | `(query: string) => Promise<UserLike[]>` | No | People search for people-picker columns |
+| `getUserByEmail` | `(email: string) => Promise<UserLike \| undefined>` | No | Lookup user by email |
+| `entityLabelPlural` | `string` | No | Label for pagination (e.g. "projects"). Default `"items"` |
+| `defaultPageSize` | `number` | No | Initial rows per page. Default `20` |
+| `defaultSortBy` | `string` | No | Initial sort column. Omit to use first column |
+| `defaultSortDirection` | `'asc' \| 'desc'` | No | Initial sort direction. Default `'asc'` |
+| `emptyStateMessage` | `React.ReactNode` | No | Custom message when no results (replaces default text) |
+| `emptyStateRender` | `() => React.ReactNode` | No | Custom empty state content (replaces default block) |
+| `title` | `React.ReactNode` | No | Optional title above the grid |
+| `className` | `string` | No | CSS class on the wrapper |
+| `layoutMode` | `'content' \| 'fill'` | No | `content` = shrink to content; `fill` = fill container. Default `'content'` |
+
 #### `DataGridTable<T>`
 
-The main data grid component with sorting and filtering built into column headers.
+The main data grid component with sorting and filtering built into column headers. Use with **server-side** data or when you need full control over state.
 
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
@@ -278,6 +376,7 @@ The main data grid component with sorting and filtering built into column header
 | `sortDirection` | `'asc' \| 'desc'` | Yes | Sort direction |
 | `onColumnSort` | `(columnKey: string) => void` | Yes | Called when user clicks sort |
 | `visibleColumns` | `Set<string>` | No | Set of visible column IDs |
+| `layoutMode` | `'content' \| 'fill'` | No | `content` = shrink to content; `fill` = fill container. Default `'content'` |
 | `multiSelectFilters` | `Record<string, string[]>` | Yes | Multi-select filter state |
 | `onMultiSelectFilterChange` | `(key: string, values: string[]) => void` | Yes | Multi-select change handler |
 | `textFilters` | `Record<string, string>` | No | Text filter state |
@@ -288,7 +387,9 @@ The main data grid component with sorting and filtering built into column header
 | `loadingFilterOptions` | `Record<string, boolean>` | Yes | Loading state per filter field |
 | `peopleSearch` | `(query: string) => Promise<UserLike[]>` | No | People search function |
 | `getUserByEmail` | `(email: string) => Promise<UserLike \| undefined>` | No | Lookup user by email |
-| `emptyState` | `{ onClearAll: () => void; hasActiveFilters: boolean }` | No | Empty state configuration |
+| `emptyState` | `{ onClearAll: () => void; hasActiveFilters: boolean; message?: React.ReactNode; render?: () => React.ReactNode }` | No | Empty state: `message` = custom text; `render` = custom content |
+| `aria-label` | `string` | No | Accessible name when no visible label |
+| `aria-labelledby` | `string` | No | ID of element that labels the grid (e.g. heading) |
 
 #### `ColumnChooser`
 
@@ -312,6 +413,7 @@ Pagination UI with page numbers and size selector.
 | `totalCount` | `number` | Yes | Total number of items |
 | `onPageChange` | `(page: number) => void` | Yes | Page change handler |
 | `onPageSizeChange` | `(pageSize: number) => void` | Yes | Page size change handler |
+| `entityLabelPlural` | `string` | No | Label in "Showing X to Y of Z **items**". Default `"items"` |
 | `className` | `string` | No | Additional CSS class |
 
 #### `ColumnHeaderFilter`
@@ -372,6 +474,7 @@ interface IDataGridQueryParams {
   pageSize: number;
   sortBy?: string;
   sortDirection: 'asc' | 'desc';
+  /** Filter values keyed by filter field. Text/multiSelect: string or string[]. People: pass the selected user's email (or id) as a string for that key so the server can filter (e.g. filters.ownerEmail = selectedUser?.email). */
   filters: Record<string, string | string[]>;
 }
 ```
@@ -467,50 +570,22 @@ DataTable/
     └── exportToCsv.test.ts
 ```
 
-## Storybook Setup (Future)
+## Storybook
 
-To add Storybook for isolated development:
+Run Storybook locally to try the grid and all customization options:
 
 ```bash
-# Install Storybook
-npx storybook@latest init
-
-# Create stories for each component
-# src/components/DataTable/DataGridTable/DataGridTable.stories.tsx
-# src/components/DataTable/ColumnChooser/ColumnChooser.stories.tsx
-# etc.
+npm run storybook
 ```
 
-Example story structure:
+- **DataTable/FluentDataTable** – Default, Empty, Small/Large data, **Default sort** (e.g. Budget desc), **With CSV Export**, Ten/Twenty columns.
+- **DataTable/FluentDataTable → Playground** – Interactive controls for **layoutMode** (content vs fill), **container width**, **row count**, **page size**, **defaultSortBy** / **defaultSortDirection**, and per-column sizing.
+- **DataTable/DataGridTable** – Default, Empty, Empty with filters, **Loading filter options**, **Wide table with horizontal scroll**, With people filter.
+- **DataTable/ColumnHeaderFilter** – No filter, Text, MultiSelect, People, Sorted asc/desc, With active filter badge.
+- **DataTable/ColumnChooser** – Default, Many columns, Some hidden.
+- **DataTable/PaginationControls** – Default, First page, Many pages, Single page.
 
-```tsx
-// DataGridTable.stories.tsx
-import type { Meta, StoryObj } from '@storybook/react';
-import { DataGridTable } from './DataGridTable';
-
-const meta: Meta<typeof DataGridTable> = {
-  title: 'DataTable/DataGridTable',
-  component: DataGridTable,
-  parameters: {
-    layout: 'fullscreen',
-  },
-};
-
-export default meta;
-type Story = StoryObj<typeof DataGridTable>;
-
-export const Default: Story = {
-  args: {
-    items: mockData,
-    columns: mockColumns,
-    // ...
-  },
-};
-
-export const WithFilters: Story = { /* ... */ };
-export const Empty: Story = { /* ... */ };
-export const Loading: Story = { /* ... */ };
-```
+Use the **Theme** toolbar (Light/Dark) and **Viewport** (e.g. Desktop narrow 1024px, Desktop wide 1440px) to QA layout and theming.
 
 ## Extracting to Standalone Package
 

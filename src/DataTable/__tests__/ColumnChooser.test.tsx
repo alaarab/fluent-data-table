@@ -27,6 +27,42 @@ describe('ColumnChooser', () => {
     expect(onVisibilityChange).toHaveBeenCalledWith('b', true);
   });
 
+  it('select all shows all columns visible', () => {
+    const onVisibilityChange = jest.fn();
+    render(
+      <ColumnChooser
+        columns={columns}
+        visibleColumns={new Set(['a'])}
+        onVisibilityChange={onVisibilityChange}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: /column visibility/i });
+    fireEvent.click(trigger);
+
+    const selectAll = screen.getByRole('button', { name: /select all/i });
+    fireEvent.click(selectAll);
+
+    expect(onVisibilityChange).toHaveBeenCalledWith('b', true);
+  });
+
+  it('Escape closes dropdown', () => {
+    render(
+      <ColumnChooser
+        columns={columns}
+        visibleColumns={new Set(['a', 'b'])}
+        onVisibilityChange={jest.fn()}
+      />
+    );
+
+    const trigger = screen.getByRole('button', { name: /column visibility/i });
+    fireEvent.click(trigger);
+    expect(screen.getByLabelText('Col A')).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByLabelText('Col A')).not.toBeInTheDocument();
+  });
+
   it('clear all hides non-required visible columns', () => {
     const onVisibilityChange = jest.fn();
     render(

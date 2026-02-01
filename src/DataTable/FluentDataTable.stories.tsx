@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import * as React from 'react';
 
 import { FluentDataTable } from './FluentDataTable';
+import { exportToCsv } from './exportToCsv';
 import type { IColumnDef } from './columnTypes';
 
 interface DemoRow {
@@ -60,6 +61,14 @@ const columns: IColumnDef<DemoRow>[] = [
 
 const meta: Meta = {
   title: 'DataTable/FluentDataTable',
+  parameters: {
+    docs: {
+      description: {
+        component:
+          'Full table with column chooser, filters, and pagination. See README for API Reference (props, types). Use `aria-label` when there is no visible label.',
+      },
+    },
+  },
 };
 
 export default meta;
@@ -118,22 +127,21 @@ type PlaygroundArgs = {
   containerWidthPx: number;
   rowCount: number;
   pageSize: number;
+  defaultSortBy: string;
+  defaultSortDirection: 'asc' | 'desc';
   // Per-column sizing overrides. Keys must match columnId.
-  // Example:
-  // {
-  //   project: { minWidth: 140, defaultWidth: 200 },
-  //   status: { defaultWidth: 90 }
-  // }
   columnSizing: ColumnSizingMap;
 };
 
 export const Playground: StoryObj<PlaygroundArgs> = {
   args: {
-    columnSet: 'wide10',
-    layoutMode: 'content',
+    columnSet: "default",
+    layoutMode: "fill",
     containerWidthPx: 1000,
     rowCount: 10,
     pageSize: 10,
+    defaultSortBy: "project",
+    defaultSortDirection: "asc",
     columnSizing: {
       project: { minWidth: 140, defaultWidth: 180, idealWidth: 180 },
       owner: { minWidth: 120, defaultWidth: 140, idealWidth: 140 },
@@ -174,13 +182,19 @@ export const Playground: StoryObj<PlaygroundArgs> = {
     pageSize: {
       control: { type: 'number', min: 1, max: 100, step: 1 },
     },
-    // Storybook will render this as an object editor; it's per-column, but doesn't spam the UI with 60 sliders.
+    defaultSortBy: {
+      control: { type: 'text' },
+    },
+    defaultSortDirection: {
+      control: { type: 'select' },
+      options: ['asc', 'desc'],
+    },
     columnSizing: {
       control: { type: 'object' },
     },
   },
   render: (args) => {
-    const { columnSet, layoutMode, containerWidthPx, rowCount, pageSize, columnSizing } = args;
+    const { columnSet, layoutMode, containerWidthPx, rowCount, pageSize, defaultSortBy, defaultSortDirection, columnSizing } = args;
 
     if (columnSet === 'default') {
       const demoColumns = applySizing(columns, columnSizing);
@@ -194,6 +208,8 @@ export const Playground: StoryObj<PlaygroundArgs> = {
               filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
               entityLabelPlural="projects"
               defaultPageSize={pageSize}
+              defaultSortBy={defaultSortBy || undefined}
+              defaultSortDirection={defaultSortDirection}
               layoutMode={layoutMode}
               title={<h3 style={{ margin: 0 }}>Playground — Default columns</h3>}
             />
@@ -205,7 +221,6 @@ export const Playground: StoryObj<PlaygroundArgs> = {
     const baseCols = columnSet === 'wide20' ? wideColumns20 : wideColumns10;
     const sizedCols = applySizing(baseCols, columnSizing);
 
-    // Row count control: allow empty/small/large in one story.
     const items = wideRows.slice(0, Math.max(0, Math.min(wideRows.length, rowCount)));
 
     return (
@@ -218,6 +233,8 @@ export const Playground: StoryObj<PlaygroundArgs> = {
             filterOptions={{ status: ['Active', 'On Hold', 'Closed'], region: ['Americas', 'EMEA', 'APAC'] }}
             entityLabelPlural="rows"
             defaultPageSize={pageSize}
+            defaultSortBy={defaultSortBy || undefined}
+            defaultSortDirection={defaultSortDirection}
             layoutMode={layoutMode}
             title={<h3 style={{ margin: 0 }}>Playground — {columnSet}</h3>}
           />
@@ -272,6 +289,60 @@ export const LargePageSize: Story = {
       />
     </div>
   ),
+};
+
+export const DefaultSort: Story = {
+  render: () => (
+    <div style={{ padding: 16 }}>
+      <FluentDataTable<DemoRow>
+        items={allRows}
+        columns={columns}
+        getRowId={(r) => r.id}
+        filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
+        entityLabelPlural="projects"
+        defaultPageSize={10}
+        defaultSortBy="budget"
+        defaultSortDirection="desc"
+        title={<h3 style={{ margin: 0 }}>Projects (sorted by Budget desc by default)</h3>}
+      />
+    </div>
+  ),
+};
+
+export const WithCsvExport: Story = {
+  render: () => {
+    const handleExport = () => {
+      const csvColumns = columns.map((c) => ({ columnId: c.columnId, name: c.name }));
+      exportToCsv(
+        allRows,
+        csvColumns,
+        (item, colId) => {
+          const key = colId as keyof DemoRow;
+          const v = item[key];
+          return v != null ? String(v) : '';
+        },
+        'projects.csv'
+      );
+    };
+    return (
+      <div style={{ padding: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <h3 style={{ margin: 0 }}>Projects with Export</h3>
+          <button type="button" onClick={handleExport} style={{ padding: '6px 12px', cursor: 'pointer' }}>
+            Export CSV
+          </button>
+        </div>
+        <FluentDataTable<DemoRow>
+          items={allRows}
+          columns={columns}
+          getRowId={(r) => r.id}
+          filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
+          entityLabelPlural="projects"
+          defaultPageSize={10}
+        />
+      </div>
+    );
+  },
 };
 
 // --- Wide table: 10 and 20 columns ---

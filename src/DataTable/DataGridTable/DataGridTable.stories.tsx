@@ -31,6 +31,14 @@ const demoColumns: IColumnDef<DemoRow>[] = [
 const meta: Meta<typeof DataGridTable<DemoRow>> = {
   title: 'DataTable/DataGridTable',
   component: DataGridTable as React.ComponentType<IDataGridTableProps<DemoRow>>,
+  parameters: {
+    docs: {
+      description: {
+        component:
+          'Core grid with header filters (text, multiSelect, people), resizable columns, empty state. See README for API Reference. Use `aria-label` or `aria-labelledby` when no visible label.',
+      },
+    },
+  },
 };
 
 export default meta;
@@ -100,6 +108,73 @@ export const Empty: Story = {
       }}
     />
   ),
+};
+
+export const LoadingFilterOptions: Story = {
+  render: () => {
+    const [multiSelectFilters, setMultiSelectFilters] = React.useState<Record<string, string[]>>({});
+    return (
+      <div style={{ padding: 16 }}>
+        <p style={{ marginBottom: 8 }}>
+          Status column shows loading spinner while filter options are loading.
+        </p>
+        <DataGridTable<DemoRow>
+          items={demoItems}
+          columns={demoColumns}
+          getRowId={(r) => r.id}
+          sortBy={undefined}
+          sortDirection="asc"
+          onColumnSort={() => undefined}
+          visibleColumns={new Set(demoColumns.map((c) => c.columnId))}
+          multiSelectFilters={multiSelectFilters}
+          onMultiSelectFilterChange={(key, values) => setMultiSelectFilters((prev) => ({ ...prev, [key]: values }))}
+          filterOptions={{ status: ['Active', 'Closed'] }}
+          loadingFilterOptions={{ status: true }}
+        />
+      </div>
+    );
+  },
+};
+
+const wideColumns: IColumnDef<DemoRow>[] = [
+  ...demoColumns,
+  { columnId: 'extra1', name: 'Extra 1', sortable: true, renderCell: () => <span>—</span> },
+  { columnId: 'extra2', name: 'Extra 2', sortable: true, renderCell: () => <span>—</span> },
+  { columnId: 'extra3', name: 'Extra 3', sortable: true, renderCell: () => <span>—</span> },
+  { columnId: 'extra4', name: 'Extra 4', sortable: true, renderCell: () => <span>—</span> },
+  { columnId: 'extra5', name: 'Extra 5', sortable: true, renderCell: () => <span>—</span> },
+];
+
+export const WideTableHorizontalScroll: Story = {
+  render: () => {
+    const [sortBy, setSortBy] = React.useState<string | undefined>();
+    const [sortDirection, setSortDirection] = React.useState<'asc' | 'desc'>('asc');
+    const [multiSelectFilters, setMultiSelectFilters] = React.useState<Record<string, string[]>>({});
+    const handleSort = (columnKey: string) => {
+      setSortBy((prev) => (prev === columnKey ? prev : columnKey));
+      setSortDirection((prev) => (sortBy === columnKey && prev === 'asc' ? 'desc' : 'asc'));
+    };
+    return (
+      <div style={{ padding: 16, maxWidth: 500 }}>
+        <p style={{ marginBottom: 8 }}>
+          Narrow container (500px) with many columns – horizontal scroll.
+        </p>
+        <DataGridTable<DemoRow>
+          items={demoItems}
+          columns={wideColumns}
+          getRowId={(r) => r.id}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+          onColumnSort={handleSort}
+          visibleColumns={new Set(wideColumns.map((c) => c.columnId))}
+          multiSelectFilters={multiSelectFilters}
+          onMultiSelectFilterChange={(key, values) => setMultiSelectFilters((prev) => ({ ...prev, [key]: values }))}
+          filterOptions={{ status: ['Active', 'Closed'] }}
+          loadingFilterOptions={{}}
+        />
+      </div>
+    );
+  },
 };
 
 export const EmptyWithActiveFilters: Story = {

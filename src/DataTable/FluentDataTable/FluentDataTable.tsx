@@ -17,6 +17,14 @@ export interface IFluentDataTableProps<T> {
   getUserByEmail?: (email: string) => Promise<UserLike | undefined>;
   entityLabelPlural?: string;
   defaultPageSize?: number;
+  /** Initial sort column (defaults to first column if not set). */
+  defaultSortBy?: string;
+  /** Initial sort direction (defaults to 'asc'). */
+  defaultSortDirection?: 'asc' | 'desc';
+  /** Custom empty state message (when no results). */
+  emptyStateMessage?: React.ReactNode;
+  /** Custom empty state content (replaces default message when provided). */
+  emptyStateRender?: () => React.ReactNode;
   title?: React.ReactNode;
   className?: string;
 
@@ -56,13 +64,21 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
     getUserByEmail,
     entityLabelPlural = 'items',
     defaultPageSize = DEFAULT_PAGE_SIZE,
+    defaultSortBy,
+    defaultSortDirection = 'asc',
+    emptyStateMessage,
+    emptyStateRender,
     title,
     className,
     layoutMode = 'content',
   } = props;
 
-  const [sortBy, setSortBy] = useState<string | undefined>(() => columns[0]?.columnId);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortState, setSortState] = useState<{ sortBy: string | undefined; sortDirection: 'asc' | 'desc' }>(() => ({
+    sortBy: defaultSortBy ?? columns[0]?.columnId,
+    sortDirection: defaultSortDirection,
+  }));
+  const sortBy = sortState.sortBy;
+  const sortDirection = sortState.sortDirection;
   const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
     const visible = columns
       .filter((c) => c.defaultVisible !== false)
@@ -76,9 +92,12 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
   const [pageSize, setPageSize] = useState(defaultPageSize);
 
   const handleSort = useCallback((columnKey: string) => {
-    setSortBy((prev) => (prev === columnKey ? prev : columnKey));
-    setSortDirection((prev) => (sortBy === columnKey ? (prev === 'asc' ? 'desc' : 'asc') : 'asc'));
-  }, [sortBy]);
+    setSortState((prev) => ({
+      sortBy: columnKey,
+      sortDirection:
+        prev.sortBy === columnKey ? (prev.sortDirection === 'asc' ? 'desc' : 'asc') : 'asc',
+    }));
+  }, []);
 
   const handleMultiSelectFilterChange = useCallback((key: string, values: string[]) => {
     setMultiSelectFilters((prev) => ({ ...prev, [key]: values }));
@@ -212,6 +231,8 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
         setPeopleFilters({});
         setPage(1);
       },
+      message: emptyStateMessage,
+      render: emptyStateRender,
     },
   };
 

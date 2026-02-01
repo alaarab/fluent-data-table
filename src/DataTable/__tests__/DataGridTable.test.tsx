@@ -1,14 +1,11 @@
 import * as React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { DataGridTable } from '../DataGridTable/DataGridTable';
 import type { IColumnDef } from '../columnTypes';
+import type { UserLike } from '../dataGridTypes';
+import { fixtureRows, getRowId, type FixtureRow } from './fixtures';
 
-interface Row {
-  id: string;
-  name: string;
-}
-
-const columns: IColumnDef<Row>[] = [
+const twoColumnColumns: IColumnDef<FixtureRow>[] = [
   {
     columnId: 'name',
     name: 'Name',
@@ -16,31 +13,35 @@ const columns: IColumnDef<Row>[] = [
     filterable: { type: 'text' },
     renderCell: (item) => <span data-testid="cell-name">{item.name}</span>,
   },
+  {
+    columnId: 'status',
+    name: 'Status',
+    sortable: true,
+    filterable: { type: 'multiSelect', filterField: 'status' },
+    renderCell: (item) => <span data-testid="cell-status">{item.status}</span>,
+  },
 ];
 
-function renderTable(overrides: Partial<React.ComponentProps<typeof DataGridTable<Row>>> = {}) {
-  const defaultProps: React.ComponentProps<typeof DataGridTable<Row>> = {
-    items: [
-      { id: '1', name: 'Alpha' },
-      { id: '2', name: 'Beta' },
-    ],
-    columns,
-    getRowId: (r) => r.id,
+function renderTable(overrides: Partial<React.ComponentProps<typeof DataGridTable<FixtureRow>>> = {}) {
+  const defaultProps: React.ComponentProps<typeof DataGridTable<FixtureRow>> = {
+    items: fixtureRows.slice(0, 2),
+    columns: twoColumnColumns,
+    getRowId,
     sortBy: undefined,
     sortDirection: 'asc',
     onColumnSort: jest.fn(),
-    visibleColumns: new Set(['name']),
+    visibleColumns: new Set(['name', 'status']),
     multiSelectFilters: {},
     onMultiSelectFilterChange: jest.fn(),
     textFilters: {},
     onTextFilterChange: jest.fn(),
     peopleFilters: {},
     onPeopleFilterChange: jest.fn(),
-    filterOptions: {},
+    filterOptions: { status: ['Active', 'Closed'] },
     loadingFilterOptions: {},
   };
 
-  return render(<DataGridTable<Row> {...defaultProps} {...overrides} />);
+  return render(<DataGridTable<FixtureRow> {...defaultProps} {...overrides} />);
 }
 
 describe('DataGridTable', () => {
@@ -48,6 +49,43 @@ describe('DataGridTable', () => {
     renderTable();
 
     expect(screen.getAllByTestId('cell-name').map((el) => el.textContent)).toEqual(['Alpha', 'Beta']);
+    expect(screen.getAllByTestId('cell-status').map((el) => el.textContent)).toEqual(['Active', 'Closed']);
+  });
+
+  it('hides columns not in visibleColumns', () => {
+    renderTable({ visibleColumns: new Set(['name']) });
+    expect(screen.getAllByTestId('cell-name')).toHaveLength(2);
+    expect(screen.queryByTestId('cell-status')).not.toBeInTheDocument();
+  });
+
+  it('sets aria-label when provided', () => {
+    const { container } = renderTable({ 'aria-label': 'Projects grid' });
+    const region = container.querySelector('[role="region"][aria-label="Projects grid"]');
+    expect(region).toBeInTheDocument();
+  });
+
+  it('sets aria-labelledby when provided', () => {
+    render(
+      <>
+        <h2 id="grid-heading">Projects</h2>
+        <DataGridTable<FixtureRow>
+          items={fixtureRows.slice(0, 2)}
+          columns={twoColumnColumns}
+          getRowId={getRowId}
+          sortBy={undefined}
+          sortDirection="asc"
+          onColumnSort={jest.fn()}
+          visibleColumns={new Set(['name', 'status'])}
+          multiSelectFilters={{}}
+          onMultiSelectFilterChange={jest.fn()}
+          filterOptions={{}}
+          loadingFilterOptions={{}}
+          aria-labelledby="grid-heading"
+        />
+      </>
+    );
+    const region = screen.getByRole('region', { name: 'Projects' });
+    expect(region).toHaveAttribute('aria-labelledby', 'grid-heading');
   });
 
   it('calls onColumnSort when header clicked for sortable column', () => {
@@ -77,7 +115,7 @@ describe('DataGridTable', () => {
   it('wires text filter through onTextFilterChange with filterField override', () => {
     const onTextFilterChange = jest.fn();
 
-    const textFilterColumns: IColumnDef<Row>[] = [
+    const textFilterColumns: IColumnDef<FixtureRow>[] = [
       {
         columnId: 'name',
         name: 'Name',
@@ -107,7 +145,7 @@ describe('DataGridTable', () => {
   it('wires multi-select filter through onMultiSelectFilterChange with filterField', () => {
     const onMultiSelectFilterChange = jest.fn();
 
-    const statusColumns: IColumnDef<Row>[] = [
+    const statusColumns: IColumnDef<FixtureRow>[] = [
       {
         columnId: 'name',
         name: 'Name',
@@ -119,6 +157,7 @@ describe('DataGridTable', () => {
 
     renderTable({
       columns: statusColumns,
+      visibleColumns: new Set(['name']),
       onMultiSelectFilterChange,
       filterOptions: { status: ['Active', 'Closed'] },
     });
@@ -133,6 +172,66 @@ describe('DataGridTable', () => {
     fireEvent.click(applyButton);
 
     expect(onMultiSelectFilterChange).toHaveBeenCalledWith('status', ['Active', 'Closed']);
+  });
+
+  it('wires people filter: open, search, select user, calls onPeopleFilterChange', async () => {
+    const alice: UserLike = {
+      id: '1',
+      displayName: 'Alice Johnson',
+      email: 'alice@example.com',
+    };
+    const peopleSearch = jest.fn<Promise<UserLike[]>, [string]>().mockResolvedValue([alice]);
+    const onPeopleFilterChange = jest.fn();
+
+    const peopleColumns: IColumnDef<FixtureRow>[] = [
+      {
+        columnId: 'name',
+        name: 'Name',
+        sortable: false,
+        renderCell: (item) => <span data-testid="cell-name">{item.name}</span>,
+      },
+      {
+        columnId: 'owner',
+        name: 'Owner',
+        sortable: false,
+        filterable: { type: 'people', filterField: 'ownerEmail' },
+        renderCell: (item) => <span data-testid="cell-owner">{item.name}</span>,
+      },
+    ];
+
+    renderTable({
+      columns: peopleColumns,
+      visibleColumns: new Set(['name', 'owner']),
+      multiSelectFilters: {},
+      onMultiSelectFilterChange: jest.fn(),
+      filterOptions: {},
+      loadingFilterOptions: {},
+      peopleFilters: {},
+      onPeopleFilterChange: peopleSearch ? onPeopleFilterChange : undefined,
+      peopleSearch,
+    });
+
+    const filterButton = screen.getByRole('button', { name: /filter owner/i });
+    fireEvent.click(filterButton);
+
+    const input = screen.getByPlaceholderText(/search for a person/i);
+    fireEvent.change(input, { target: { value: 'ali' } });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 350));
+    });
+
+    await waitFor(() => {
+      expect(peopleSearch).toHaveBeenCalledWith('ali');
+    });
+
+    const suggestion = await screen.findByText('Alice Johnson');
+    fireEvent.click(suggestion);
+
+    expect(onPeopleFilterChange).toHaveBeenCalledWith(
+      'ownerEmail',
+      expect.objectContaining({ displayName: 'Alice Johnson', email: 'alice@example.com' })
+    );
   });
 });
 

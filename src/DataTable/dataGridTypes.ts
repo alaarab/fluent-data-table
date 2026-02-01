@@ -22,6 +22,13 @@ export interface IDataGridQueryParams {
   pageSize: number;
   sortBy?: string;
   sortDirection: 'asc' | 'desc';
+  /**
+   * Filter values keyed by filter field (column filterField or columnId).
+   * - Text and multi-select: string or string[].
+   * - People filters: pass the selected user's email (or id) as a string for that key
+   *   so the server can filter by owner/assignee. The host maps UserLike from the UI
+   *   to the value sent here (e.g. filters.ownerEmail = selectedUser?.email).
+   */
   filters: Record<string, string | string[]>;
 }
 

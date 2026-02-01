@@ -80,6 +80,32 @@ describe('useFilterOptions', () => {
     expect(dataSource.getFilterOptions).toHaveBeenCalledWith('stage');
   });
 
+  it('sets loadingOptions to true before resolvers complete, then false after', async () => {
+    let resolveClient: (v: string[]) => void;
+    let resolveStage: (v: string[]) => void;
+    const clientPromise = new Promise<string[]>((r) => { resolveClient = r; });
+    const stagePromise = new Promise<string[]>((r) => { resolveStage = r; });
+    const dataSource: IDataGridDataSource<unknown> = {
+      ...minimalDataSource(),
+      getFilterOptions: jest.fn((field: string) => (field === 'client' ? clientPromise : stagePromise)),
+    };
+    renderAndGetResult(dataSource, ['client', 'stage']);
+
+    const initial = JSON.parse(container.querySelector('[data-testid="result"]')?.textContent || '{}');
+    expect(initial.loadingOptions?.client).toBe(true);
+    expect(initial.loadingOptions?.stage).toBe(true);
+
+    await act(async () => {
+      resolveClient!(['Acme']);
+      resolveStage!(['Active']);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const after = JSON.parse(container.querySelector('[data-testid="result"]')?.textContent || '{}');
+    expect(after.loadingOptions).toEqual({});
+    expect(after.filterOptions).toEqual({ client: ['Acme'], stage: ['Active'] });
+  });
+
   it('sets a field to empty array when getFilterOptions throws', async () => {
     const dataSource: IDataGridDataSource<unknown> = {
       ...minimalDataSource(),

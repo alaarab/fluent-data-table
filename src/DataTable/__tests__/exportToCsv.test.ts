@@ -86,6 +86,20 @@ describe('exportToCsv', () => {
       const columns: CsvColumn[] = [{ columnId: 'a', name: 'A' }];
       expect(buildCsvRows([], columns, (): string => '')).toEqual([]);
     });
+
+    it('handles getValue returning empty string for null/undefined', () => {
+      const columns: CsvColumn[] = [
+        { columnId: 'a', name: 'A' },
+        { columnId: 'b', name: 'B' },
+      ];
+      const items = [{ a: 'x', b: null }, { a: undefined, b: 'y' }];
+      const getValue = (item: { a?: string; b?: string | null }, col: string): string => {
+        const v = col === 'a' ? item.a : item.b;
+        return v == null ? '' : String(v);
+      };
+      const rows = buildCsvRows(items, columns, getValue);
+      expect(rows).toEqual(['x,', ',y']);
+    });
   });
 
   describe('exportToCsv', () => {

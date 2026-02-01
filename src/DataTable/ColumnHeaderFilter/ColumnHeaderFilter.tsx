@@ -6,12 +6,6 @@ import type { UserLike } from '../dataGridTypes';
 import type { ColumnFilterType } from '../columnTypes';
 import styles from './ColumnHeaderFilter.module.scss';
 
-export interface IColumnFilterConfig {
-  filterType: ColumnFilterType;
-  filterField?: string;
-  options?: string[];
-}
-
 export interface IColumnHeaderFilterProps {
   columnKey: string;
   columnName: string;

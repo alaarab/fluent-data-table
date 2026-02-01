@@ -121,6 +121,13 @@ function Avatar(props) {
 }
 Avatar.displayName = 'Avatar';
 
+// Tooltip -> passthrough (ColumnHeaderFilter); omit Fluent-only props so they don't reach DOM
+function Tooltip(props) {
+  const { children, content, relationship, withArrow, ...rest } = props || {};
+  return React.createElement('span', { 'data-mock': 'Tooltip', title: content, ...rest }, children);
+}
+Tooltip.displayName = 'Tooltip';
+
 // Layout / styling utilities used by ColumnChooser
 function makeStyles(styleDef) {
   return function useStyles() {
@@ -231,6 +238,7 @@ module.exports = {
   Checkbox,
   Spinner,
   Avatar,
+  Tooltip,
 
   // Styling helpers
   makeStyles,

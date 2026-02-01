@@ -15,11 +15,28 @@ describe('PaginationControls', () => {
     return render(<PaginationControls {...props} />);
   };
 
+  it('returns null when totalCount is 0', () => {
+    const { container } = renderControls({ totalCount: 0 });
+    expect(container.firstChild).toBeNull();
+  });
+
   it('renders summary text and page buttons', () => {
     renderControls();
 
     expect(screen.getByText(/Showing 11 to 20 of 50 items/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Page 2' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('disables first and previous on first page', () => {
+    renderControls({ currentPage: 1, totalCount: 50 });
+    expect(screen.getByRole('button', { name: 'First page' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+  });
+
+  it('disables last and next on last page', () => {
+    renderControls({ currentPage: 5, pageSize: 10, totalCount: 50 });
+    expect(screen.getByRole('button', { name: 'Last page' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
   });
 
   it('calls onPageChange for navigation buttons', () => {
