@@ -10,8 +10,23 @@
   align-items: center;
   gap: 4px;
   width: 100%;
+  max-width: 100%;
   min-width: 0;
   position: relative;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Keep header actions always visible, but do not let them participate in layout.
+   Otherwise, wide header cells make the sort/filter icons look "stranded" far to the right.
+
+   NOTE: Fluent's column resize hit-target lives at the far right edge of the header cell.
+   We leave a 16px safety zone for it.
+*/
+:root {
+  --dt-header-resize-zone: 16px;
+  --dt-header-action-button: 24px;
+  --dt-header-action-gap: 2px;
 }
 
 .headerContent {
@@ -20,10 +35,26 @@
   gap: 4px;
   flex: 1;
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
   padding: 2px 0;
+  box-sizing: border-box;
+  overflow: hidden;
+
+  /* Reserve room for 2 buttons + gap + resize zone so text never overlaps actions. */
+  /* padding-right removed: use normal flex layout so actions never overflow */
+}
+
+.columnNameTooltipTrigger {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .columnName {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -36,7 +67,10 @@
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--dt-header-action-gap);
+
+  /* Keep actions in normal flow so they never overflow the header cell. */
+  margin-left: auto;
   flex-shrink: 0;
 }
 

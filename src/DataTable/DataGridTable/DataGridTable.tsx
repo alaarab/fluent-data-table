@@ -25,6 +25,8 @@ export interface IDataGridTableProps<T> {
   onColumnSort: (columnKey: string) => void;
   visibleColumns?: Set<string>;
 
+  layoutMode?: 'content' | 'fill';
+
   multiSelectFilters: Record<string, string[]>;
   onMultiSelectFilterChange: (key: string, values: string[]) => void;
   textFilters?: Record<string, string>;
@@ -60,6 +62,7 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
     peopleSearch,
     getUserByEmail,
     emptyState,
+    layoutMode = 'content',
   } = props;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -100,12 +103,21 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
     return cols.reduce((sum, c) => sum + (c.minWidth ?? 80) + PADDING, 0);
   }, [columns, visibleColumns]);
 
-  const allowOverflowX = containerWidth > 0 && minTableWidth > containerWidth;
+  // allowOverflowX is computed after columnSizingOptions so it can incorporate user-driven sizing.
+
+  // Layout behavior:
+  // - overflow: always scroll horizontally.
+  // - content mode: shrink-to-fit content (avoids giant last column / trailing blank space).
+  // - fill mode: fill container (traditional full-width table).
+  const fitToContent = layoutMode === 'content';
 
   // Column sizing philosophy:
   // - Use sane defaults that don't make cells feel huge.
   // - Keep idealWidth aligned with defaultWidth unless explicitly provided.
   // - Let the user resize freely within minWidth constraints.
+  // - Allow "auto-fit" overrides (e.g. double-click resize handle).
+  const [columnSizingOverrides, setColumnSizingOverrides] = useState<Record<string, { widthPx: number }>>({});
+
   const columnSizingOptions: TableColumnSizingOptions = useMemo(() => {
     const cols = visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns;
     const acc: Record<string, { minWidth: number; defaultWidth?: number; idealWidth?: number }> = {};
@@ -113,16 +125,35 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
     cols.forEach((c) => {
       const minW = c.minWidth ?? 80;
       const defaultW = c.defaultWidth ?? 120;
+      const base = c.idealWidth ?? Math.max(minW, defaultW);
+
+      const override = columnSizingOverrides[c.columnId];
+      const w = override ? Math.max(minW, override.widthPx) : base;
 
       acc[c.columnId] = {
         minWidth: minW,
-        defaultWidth: Math.max(minW, defaultW),
-        idealWidth: c.idealWidth ?? Math.max(minW, defaultW),
+        defaultWidth: w,
+        idealWidth: w,
       };
     });
 
     return acc;
-  }, [columns, visibleColumns]);
+  }, [columns, visibleColumns, columnSizingOverrides]);
+
+  // We allow horizontal overflow when either:
+  // - the container can't even fit the sum of column *minimums*, OR
+  // - the user has resized/auto-fit columns such that the *desired* widths don't fit.
+  const desiredTableWidth = useMemo(() => {
+    const cols = visibleColumns ? columns.filter((c) => visibleColumns.has(c.columnId)) : columns;
+    const PADDING = 16;
+    return cols.reduce((sum, c) => {
+      const s = columnSizingOptions[c.columnId] as { idealWidth?: number; defaultWidth?: number; minWidth: number } | undefined;
+      const w = s?.idealWidth ?? s?.defaultWidth ?? c.idealWidth ?? c.defaultWidth ?? c.minWidth ?? 80;
+      return sum + Math.max(c.minWidth ?? 80, w) + PADDING;
+    }, 0);
+  }, [columns, visibleColumns, columnSizingOptions]);
+
+  const allowOverflowX = containerWidth > 0 && (minTableWidth > containerWidth || desiredTableWidth > containerWidth);
 
   const createHeaderWithFilter = useCallback(
     (col: IColumnDef<T>): React.ReactElement => {
@@ -214,13 +245,57 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
       createTableColumn<T>({
         columnId: col.columnId,
         compare: col.compare ?? (() => 0),
-        renderHeaderCell: () => createHeaderWithFilter(col),
+        renderHeaderCell: () => <div data-column-id={col.columnId}>{createHeaderWithFilter(col)}</div>,
         renderCell: (item) => (col.renderCell ? col.renderCell(item) : null),
       })
     );
   }, [columns, visibleColumns, createHeaderWithFilter]);
 
   const showEmptyInGrid = items.length === 0 && emptyState;
+
+  // Excel/AG Grid-ish: double-click the resize handle to auto-fit the column to the header label.
+  useEffect(() => {
+    const root = wrapperRef.current;
+    if (!root) return;
+
+    const onDblClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+
+      // Only trigger on the actual resize handle.
+      if (!target.closest('.fui-TableResizeHandle')) return;
+
+      const headerCell = target.closest('[role="columnheader"]') as HTMLElement | null;
+      if (!headerCell) return;
+
+      const colId = headerCell.querySelector('[data-column-id]')?.getAttribute('data-column-id');
+      if (!colId) return;
+
+      // Measure header label width. This is "header-only" auto-fit (safe default).
+      const label = headerCell.querySelector('[data-header-label]') as HTMLElement | null;
+      const labelWidth = label ? label.scrollWidth : 0;
+
+      // Padding + sort/filter controls + breathing room.
+      const EXTRA_PX = 44;
+      const MAX_PX = 520;
+
+      const colDef = columns.find((c) => c.columnId === colId);
+      const minW = colDef?.minWidth ?? 80;
+
+      const desired = Math.min(MAX_PX, Math.max(minW, Math.ceil(labelWidth + EXTRA_PX)));
+
+      setColumnSizingOverrides((prev) => ({
+        ...prev,
+        [colId]: { widthPx: desired },
+      }));
+
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
+    root.addEventListener('dblclick', onDblClick, true);
+    return () => root.removeEventListener('dblclick', onDblClick, true);
+  }, [columns]);
 
   return (
     <div
@@ -233,7 +308,24 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
       data-min-table-width={Math.round(minTableWidth)}
       style={{
         ['--data-table-column-count' as string]: visibleColumnCount,
-        ['--data-table-min-width' as string]: allowOverflowX ? `${Math.round(minTableWidth)}px` : '100%',
+
+        // Empty state should never create a wider-than-container header row.
+        // Force the grid to the wrapper width so the empty-state container and header align.
+        ['--data-table-width' as string]: showEmptyInGrid
+          ? '100%'
+          : allowOverflowX
+            ? 'fit-content'
+            : fitToContent
+              ? 'fit-content'
+              : '100%',
+
+        ['--data-table-min-width' as string]: showEmptyInGrid
+          ? '100%'
+          : allowOverflowX
+            ? 'max-content'
+            : fitToContent
+              ? 'max-content'
+              : '100%',
       }}
     >
       <div className={styles.tableScrollContent}>
@@ -242,8 +334,10 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
             items={items}
             columns={fluentColumns}
             resizableColumns
-            // Small tables should fit the container; wide tables can overflow and scroll.
-            resizableColumnsOptions={{ autoFitColumns: !allowOverflowX }}
+            // Resizing UX:
+            // - In overflow mode, NEVER auto-fit (it fights user resize and can "snap" columns back to fit).
+            // - In fill mode, auto-fit is OK when we're not overflowing.
+            resizableColumnsOptions={{ autoFitColumns: layoutMode === 'fill' && !allowOverflowX }}
             columnSizingOptions={columnSizingOptions}
             getRowId={getRowId}
             focusMode="composite"

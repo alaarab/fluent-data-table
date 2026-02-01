@@ -19,8 +19,9 @@
   margin-bottom: 15px;
   border-radius: var(--borderRadiusMedium, 4px);
   box-sizing: border-box;
-  /* Symmetric border: single 1px on all sides, no doubling on right */
-  border: 1px solid var(--colorNeutralStroke2, #e0e0e0);
+  /* Border is applied to the grid itself so we don't draw an empty bordered area
+     when the grid content is narrower than the container. */
+  border: none;
   -webkit-overflow-scrolling: touch;
 
   /* Wide tables: allow horizontal scroll */
@@ -35,19 +36,28 @@
 
   /* Scoped by data-column-count so our overrides apply; variable is set on this wrapper */
   &[data-column-count] :global {
-    /* Grid fills full width so table extends to the right edge */
+    /* Let the grid/table size to its content.
+       This avoids “last column becomes a giant spacer” when the container is wider than the columns,
+       and keeps header actions (sort/filter) from drifting all the way to the far right.
+       The wrapper still stays width:100% so pagination aligns. */
     .fui-DataGrid {
-      width: 100% !important;
-      /* Allow overflow scenarios to make the grid wider than the container */
-      min-width: var(--data-table-min-width, 100%) !important;
+      /* Width behavior is controlled by a CSS var from the React wrapper. */
+      width: var(--data-table-width, fit-content) !important;
+      max-width: 100% !important;
+      min-width: var(--data-table-min-width, max-content) !important;
       box-sizing: border-box !important;
-      border: none !important;
+
+      /* Visual container border belongs to the grid (not the full-width wrapper). */
+      border: 1px solid var(--colorNeutralStroke2, #e0e0e0) !important;
+      border-radius: var(--borderRadiusMedium, 4px) !important;
+      overflow: hidden;
     }
 
-    /* Table fills container. Use auto layout so Fluent sizing/resize works naturally. */
+    /* Use auto layout so Fluent sizing/resize works naturally. */
     .fui-DataGrid .fui-Table {
-      width: 100% !important;
-      /* When DataGrid min-width > container, the table will expand and wrapper will scroll */
+      width: var(--data-table-width, fit-content) !important;
+      max-width: 100% !important;
+      min-width: var(--data-table-min-width, max-content) !important;
       table-layout: auto !important;
       box-sizing: border-box !important;
       border: none !important;
@@ -111,8 +121,16 @@
       z-index: 1 !important;
     }
 
-    /* Keep resize handles consistent (including last column). Avoid special-casing the last column;
-       whitespace issues should be solved via sizing logic, not disabling UX. */
+    /* Fix: Fluent renders a resize handle on the last header cell.
+       The handle has negative horizontal margins (hit target), which bleeds past the table edge
+       and makes the last header look like it has extra space vs the body cells.
+       Hide the resize affordance on the last column header. */
+    .fui-DataGridHeader .fui-DataGridRow .fui-DataGridHeaderCell:last-of-type {
+      .fui-DataGridHeaderCell__aside,
+      .fui-TableResizeHandle {
+        display: none !important;
+      }
+    }
 
     /* No extra bottom border: last row (row + cells) – wrapper provides bottom edge so no double line */
     .fui-DataGridBody .fui-DataGridRow:last-child {
@@ -153,6 +171,7 @@
   min-height: 88px;
   min-width: 0;
   width: 100%;
+  box-sizing: border-box;
   border-top: 1px solid var(--colorNeutralStroke2, #e0e0e0);
   background-color: var(--colorNeutralBackground2, #fafafa);
 }

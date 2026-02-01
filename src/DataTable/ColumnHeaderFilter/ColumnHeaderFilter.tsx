@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { Input, Checkbox, Spinner, Avatar } from '@fluentui/react-components';
+import { Input, Checkbox, Spinner, Avatar, Tooltip } from '@fluentui/react-components';
 import { SearchRegular, ArrowUpRegular, ArrowDownRegular, ArrowSortRegular, FilterRegular } from '@fluentui/react-icons';
 import type { UserLike } from '../dataGridTypes';
 import type { ColumnFilterType } from '../columnTypes';
@@ -527,7 +527,13 @@ export const ColumnHeaderFilter: React.FC<IColumnHeaderFilterProps> = React.memo
   return (
     <div className={styles.columnHeader} ref={headerRef}>
       <div className={styles.headerContent}>
-        <span className={styles.columnName}>{columnName}</span>
+        <Tooltip content={columnName} relationship="label" withArrow>
+          <span className={styles.columnNameTooltipTrigger}>
+            <span className={styles.columnName} data-header-label>
+              {columnName}
+            </span>
+          </span>
+        </Tooltip>
       </div>
       
       <div className={styles.headerActions}>

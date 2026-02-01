@@ -19,6 +19,13 @@ export interface IFluentDataTableProps<T> {
   defaultPageSize?: number;
   title?: React.ReactNode;
   className?: string;
+
+  /**
+   * Layout mode for column sizing.
+   * - content: grid shrinks to content (no giant last column / trailing blank space)
+   * - fill: grid fills the container (traditional full-width table)
+   */
+  layoutMode?: 'content' | 'fill';
 }
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -51,6 +58,7 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
     defaultPageSize = DEFAULT_PAGE_SIZE,
     title,
     className,
+    layoutMode = 'content',
   } = props;
 
   const [sortBy, setSortBy] = useState<string | undefined>(() => columns[0]?.columnId);
@@ -195,6 +203,7 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
     loadingFilterOptions,
     peopleSearch,
     getUserByEmail,
+    layoutMode,
     emptyState: {
       hasActiveFilters,
       onClearAll: () => {

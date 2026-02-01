@@ -66,6 +66,28 @@ export default meta;
 
 type Story = StoryObj<typeof meta>;
 
+type ColumnSizing = {
+  minWidth?: number;
+  defaultWidth?: number;
+  idealWidth?: number;
+};
+
+type ColumnSizingMap = Record<string, ColumnSizing>;
+
+function applySizing<T>(cols: IColumnDef<T>[], sizing?: ColumnSizingMap): IColumnDef<T>[] {
+  if (!sizing) return cols;
+  return cols.map((c) => {
+    const s = sizing[c.columnId];
+    if (!s) return c;
+    return {
+      ...c,
+      minWidth: s.minWidth ?? c.minWidth,
+      defaultWidth: s.defaultWidth ?? c.defaultWidth,
+      idealWidth: s.idealWidth ?? c.idealWidth,
+    };
+  });
+}
+
 export const Default: Story = {
   render: () => (
     <div style={{ padding: 16 }}>
@@ -80,6 +102,129 @@ export const Default: Story = {
       />
     </div>
   ),
+};
+
+// -----------------------------
+// Playground: sizing + layout QA
+// -----------------------------
+// This is the main story for investigating width behavior across:
+// - different container widths
+// - row counts (empty / small / large)
+// - per-column sizing (min/default/ideal)
+
+type PlaygroundArgs = {
+  columnSet: 'default' | 'wide10' | 'wide20';
+  layoutMode: 'content' | 'fill';
+  containerWidthPx: number;
+  rowCount: number;
+  pageSize: number;
+  // Per-column sizing overrides. Keys must match columnId.
+  // Example:
+  // {
+  //   project: { minWidth: 140, defaultWidth: 200 },
+  //   status: { defaultWidth: 90 }
+  // }
+  columnSizing: ColumnSizingMap;
+};
+
+export const Playground: StoryObj<PlaygroundArgs> = {
+  args: {
+    columnSet: 'wide10',
+    layoutMode: 'content',
+    containerWidthPx: 1000,
+    rowCount: 10,
+    pageSize: 10,
+    columnSizing: {
+      project: { minWidth: 140, defaultWidth: 180, idealWidth: 180 },
+      owner: { minWidth: 120, defaultWidth: 140, idealWidth: 140 },
+      status: { minWidth: 100, defaultWidth: 120, idealWidth: 120 },
+      budget: { minWidth: 110, defaultWidth: 130, idealWidth: 130 },
+      region: { minWidth: 110, defaultWidth: 130, idealWidth: 130 },
+      startDate: { minWidth: 110, defaultWidth: 130, idealWidth: 130 },
+      endDate: { minWidth: 110, defaultWidth: 130, idealWidth: 130 },
+      priority: { minWidth: 110, defaultWidth: 130, idealWidth: 130 },
+      category: { minWidth: 120, defaultWidth: 140, idealWidth: 140 },
+      progress: { minWidth: 110, defaultWidth: 130, idealWidth: 130 },
+      costCenter: { minWidth: 130, defaultWidth: 150, idealWidth: 150 },
+      sponsor: { minWidth: 140, defaultWidth: 160, idealWidth: 160 },
+      risk: { minWidth: 110, defaultWidth: 130, idealWidth: 130 },
+      phase: { minWidth: 130, defaultWidth: 150, idealWidth: 150 },
+      milestone: { minWidth: 120, defaultWidth: 140, idealWidth: 140 },
+      vendor: { minWidth: 120, defaultWidth: 140, idealWidth: 140 },
+      contract: { minWidth: 120, defaultWidth: 140, idealWidth: 140 },
+      notes: { minWidth: 180, defaultWidth: 220, idealWidth: 220 },
+      tags: { minWidth: 110, defaultWidth: 130, idealWidth: 130 },
+    },
+  },
+  argTypes: {
+    columnSet: {
+      control: { type: 'select' },
+      options: ['default', 'wide10', 'wide20'],
+    },
+    layoutMode: {
+      control: { type: 'select' },
+      options: ['content', 'fill'],
+    },
+    containerWidthPx: {
+      control: { type: 'number', min: 320, max: 1600, step: 10 },
+    },
+    rowCount: {
+      control: { type: 'number', min: 0, max: 15, step: 1 },
+    },
+    pageSize: {
+      control: { type: 'number', min: 1, max: 100, step: 1 },
+    },
+    // Storybook will render this as an object editor; it's per-column, but doesn't spam the UI with 60 sliders.
+    columnSizing: {
+      control: { type: 'object' },
+    },
+  },
+  render: (args) => {
+    const { columnSet, layoutMode, containerWidthPx, rowCount, pageSize, columnSizing } = args;
+
+    if (columnSet === 'default') {
+      const demoColumns = applySizing(columns, columnSizing);
+      return (
+        <div style={{ padding: 16 }}>
+          <div style={{ width: containerWidthPx, maxWidth: '100%' }}>
+            <FluentDataTable<DemoRow>
+              items={allRows.slice(0, Math.max(0, Math.min(allRows.length, rowCount)))}
+              columns={demoColumns}
+              getRowId={(r) => r.id}
+              filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
+              entityLabelPlural="projects"
+              defaultPageSize={pageSize}
+              layoutMode={layoutMode}
+              title={<h3 style={{ margin: 0 }}>Playground — Default columns</h3>}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    const baseCols = columnSet === 'wide20' ? wideColumns20 : wideColumns10;
+    const sizedCols = applySizing(baseCols, columnSizing);
+
+    // Row count control: allow empty/small/large in one story.
+    const items = wideRows.slice(0, Math.max(0, Math.min(wideRows.length, rowCount)));
+
+    return (
+      <div style={{ padding: 16 }}>
+        <div style={{ width: containerWidthPx, maxWidth: '100%' }}>
+          <FluentDataTable<WideRow>
+            items={items}
+            columns={sizedCols}
+            getRowId={(r) => r.id}
+            filterOptions={{ status: ['Active', 'On Hold', 'Closed'], region: ['Americas', 'EMEA', 'APAC'] }}
+            entityLabelPlural="rows"
+            defaultPageSize={pageSize}
+            layoutMode={layoutMode}
+            title={<h3 style={{ margin: 0 }}>Playground — {columnSet}</h3>}
+          />
+        </div>
+      </div>
+    );
+  },
 };
 
 export const Empty: Story = {

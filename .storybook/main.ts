@@ -12,6 +12,11 @@ const config: StorybookConfig = {
   },
   async viteFinal(config) {
     return mergeConfig(config, {
+      // Disable Vite HMR (Storybook will still rebuild on file changes, but the browser won't hot-patch).
+      // This is a stability tradeoff to avoid repeated SIGKILLs / connection flapping under memory pressure.
+      server: {
+        hmr: false,
+      },
       css: {
         modules: {
           localsConvention: 'camelCase',
