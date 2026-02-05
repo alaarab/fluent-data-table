@@ -1,20 +1,13 @@
 import * as React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FluentDataTable } from '../FluentDataTable/FluentDataTable';
-import {
-  fixtureRows,
-  fixtureColumns,
-  fixtureFilterOptions,
-  getRowId,
-  type FixtureRow,
-} from './fixtures';
+import { fixtureRows, fixtureColumns, getRowId, type FixtureRow } from './fixtures';
 
 function renderFluentDataTable(overrides: Partial<React.ComponentProps<typeof FluentDataTable<FixtureRow>>> = {}) {
   const defaultProps: React.ComponentProps<typeof FluentDataTable<FixtureRow>> = {
-    items: fixtureRows,
+    data: fixtureRows,
     columns: fixtureColumns,
     getRowId,
-    filterOptions: fixtureFilterOptions,
     entityLabelPlural: 'items',
     defaultPageSize: 10,
   };

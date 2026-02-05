@@ -12,6 +12,14 @@ export {
   exportToCsv,
   type CsvColumn,
 } from './exportToCsv';
-export type { IDataGridDataSource, IDataGridQueryParams, UserLike } from './dataGridTypes';
-export { toUserLike } from './dataGridTypes';
+export type {
+  IDataGridDataSource,
+  IDataGridQueryParams,
+  UserLike,
+  IDataSource,
+  IFilters,
+  IFetchParams,
+  IPageResult,
+} from './dataGridTypes';
+export { toUserLike, toDataGridFilterProps, toLegacyFilters } from './dataGridTypes';
 export type { IColumnMeta, IColumnFilterDef, IColumnDef, ColumnFilterType } from './columnTypes';

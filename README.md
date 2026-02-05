@@ -12,7 +12,7 @@ Full-featured, generic data table component built on [Fluent UI DataGrid](https:
 - **Empty state** - Custom message or full custom content when no results (`emptyStateMessage` / `emptyStateRender` or `emptyState.message` / `emptyState.render`)
 - **CSV Export** - Export visible or all data to CSV
 - **Generic Types** - Works with any data type `<T>`
-- **Data Source Pattern** - Host provides `IDataGridDataSource<T>` adapter for API integration
+- **Data source pattern** - Pass `data` (array) for client-side or `dataSource` (IDataSource) for server-side; unified `filters` object; optional controlled state
 
 ### Accessibility & best practices (Fluent DataGrid)
 
@@ -44,7 +44,9 @@ npm install @alaarab/fluent-data-table
 
 ## Quick Start
 
-Use **`<FluentDataTable />`** for client-side data (in-memory list). It includes the grid, column chooser, filters, and pagination in one component.
+**`<FluentDataTable />`** works with either an in-memory array or a server data source. Pass **`data`** for client-side (filter/sort/page in memory) or **`dataSource`** for server-side (fetch pages from your API).
+
+### Client-side (in-memory data)
 
 ```tsx
 import { FluentDataTable, type IColumnDef } from '@alaarab/fluent-data-table';
@@ -66,17 +68,42 @@ function ProductTable() {
   const [items] = useState<IProduct[]>(/* your data */);
   return (
     <FluentDataTable<IProduct>
-      items={items}
+      data={items}
       columns={columns}
       getRowId={(r) => r.id}
-      filterOptions={{ category: ['A', 'B', 'C'] }}
       entityLabelPlural="products"
     />
   );
 }
 ```
 
-For server-side data or full control, use `DataGridTable`, `ColumnChooser`, and `PaginationControls` with your own state and `IDataGridDataSource<T>`. The sections below show how to wire this to your API and list the full API surface.
+Filter options for multi-select columns are derived from the data automatically. No need to pass `filterOptions` for client-side.
+
+### Server-side (data source)
+
+```tsx
+const dataSource: IDataSource<IProduct> = {
+  async fetchPage(params) {
+    const res = await fetch(`/api/products?page=${params.page}&pageSize=${params.pageSize}&sort=${params.sort?.field}&dir=${params.sort?.direction}`);
+    return res.json(); // { items: IProduct[], totalCount: number }
+  },
+  async fetchFilterOptions(field) {
+    const res = await fetch(`/api/products/distinct/${field}`);
+    return res.json(); // string[]
+  },
+};
+
+<FluentDataTable<IProduct>
+  dataSource={dataSource}
+  columns={columns}
+  getRowId={(r) => r.id}
+  entityLabelPlural="products"
+/>
+```
+
+For full control (URL sync, custom toolbar), use **controlled** props: `page`, `pageSize`, `sort`, `filters`, and `onPageChange`, `onSortChange`, `onFiltersChange`, etc. See [API Reference](#fluentdatatablet) below.
+
+For low-level control, use `DataGridTable`, `PaginationControls`, and `ColumnChooser` with your own state and pass `toDataGridFilterProps(filters)` to the grid.
 
 ## Customizing the grid
 
@@ -102,10 +129,9 @@ Example: sort by Budget descending on load:
 
 ```tsx
 <FluentDataTable<Project>
-  items={projects}
+  data={projects}
   columns={columns}
   getRowId={(r) => r.id}
-  filterOptions={{ status: ['Active', 'Closed'] }}
   defaultSortBy="budget"
   defaultSortDirection="desc"
   entityLabelPlural="projects"
@@ -116,15 +142,15 @@ Example: sort by Budget descending on load:
 
 When there are no rows, you can customize the message or replace the whole block.
 
-- **FluentDataTable**: `emptyStateMessage` (React node) or `emptyStateRender` (function returning React node). Use `emptyStateMessage` for custom text; use `emptyStateRender` for full control (e.g. "Create item" button).
-- **DataGridTable** (when using the grid directly): `emptyState.message` or `emptyState.render`. Same meaning: custom message vs. custom content.
+- **FluentDataTable**: pass `emptyState={{ message: '...' }}` for custom text, or `emptyState={{ render: () => <div>...</div> }}` for full control (e.g. "Create item" button).
+- **DataGridTable** (when using the grid directly): `emptyState.message` or `emptyState.render`. Same meaning.
 
 Example – custom empty message:
 
 ```tsx
 <FluentDataTable<Project>
   ...
-  emptyStateMessage="No projects yet. Create one to get started."
+  emptyState={{ message: 'No projects yet. Create one to get started.' }}
 />
 ```
 
@@ -133,27 +159,32 @@ Example – custom empty block with action:
 ```tsx
 <FluentDataTable<Project>
   ...
-  emptyStateRender={() => (
-    <div>
-      <p>No projects match your filters.</p>
-      <button onClick={onClearFilters}>Clear filters</button>
-      <button onClick={onCreate}>Create project</button>
-    </div>
-  )}
+  emptyState={{
+    render: () => (
+      <div>
+        <p>No projects match your filters.</p>
+        <button onClick={onClearFilters}>Clear filters</button>
+        <button onClick={onCreate}>Create project</button>
+      </div>
+    ),
+  }}
 />
 ```
 
 ### Other FluentDataTable props
 
 - **`title`** – Optional React node above the grid (e.g. `<h2>Projects</h2>`).
+- **`toolbar`** – Optional React node (e.g. export button) next to the column chooser.
 - **`className`** – CSS class on the wrapper.
-- **`defaultPageSize`** – Initial rows per page (default 20). Page size options are 10, 20, 50, 100.
+- **`defaultPageSize`** – Uncontrolled: initial rows per page (default 20). Page size options are 10, 20, 50, 100.
 - **`entityLabelPlural`** – Label for pagination text (e.g. "Showing 1 to 10 of 50 **projects**"). Default `"items"`.
 
-For a full list of props, see the [API Reference](#api-reference) below.
+For the full list of props (including controlled `page`, `sort`, `filters`, and callbacks), see the [API Reference](#api-reference) below.
 
 <details>
-<summary>DataGridTable + IDataGridDataSource (server-side)</summary>
+<summary>DataGridTable + low-level state (server-side, full control)</summary>
+
+For URL sync, custom toolbar, or full control over state, use `DataGridTable` with your own state. Implement **`IDataSource<T>`** with `fetchPage(IFetchParams)` and use **`toDataGridFilterProps(filters)`** to pass filter state to the grid. Legacy **`IDataGridDataSource`** (getPage + IDataGridQueryParams) is still supported but deprecated.
 
 ```tsx
 import {
@@ -161,8 +192,10 @@ import {
   PaginationControls,
   ColumnChooser,
   useFilterOptions,
+  toDataGridFilterProps,
   type IColumnDef,
-  type IDataGridDataSource,
+  type IDataSource,
+  type IFilters,
 } from '@alaarab/fluent-data-table';
 
 interface IProduct {
@@ -174,12 +207,12 @@ interface IProduct {
 
 const columns: IColumnDef<IProduct>[] = [ /* ... */ ];
 
-const dataSource: IDataGridDataSource<IProduct> = {
-  async getPage(params) {
-    const response = await fetch(`/api/products?page=${params.page}&...`);
+const dataSource: IDataSource<IProduct> = {
+  async fetchPage(params) {
+    const response = await fetch(`/api/products?page=${params.page}&pageSize=${params.pageSize}&...`);
     return response.json(); // { items: IProduct[], totalCount: number }
   },
-  async getFilterOptions(field) {
+  async fetchFilterOptions(field) {
     const response = await fetch(`/api/products/distinct/${field}`);
     return response.json(); // string[]
   },
@@ -193,20 +226,20 @@ function ProductTable() {
   const [pageSize, setPageSize] = useState(20);
   const [sortBy, setSortBy] = useState<string>();
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
-  const [multiSelectFilters, setMultiSelectFilters] = useState<Record<string, string[]>>({});
+  const [filters, setFilters] = useState<IFilters>({});
   const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(c => c.columnId)));
+  const { multiSelectFilters, textFilters, peopleFilters } = toDataGridFilterProps(filters);
 
-  // Load filter options via hook
-  const { filterOptions, loadingOptions } = useFilterOptions(dataSource, ['category']);
+  const filterOptionsAdapter = { getFilterOptions: dataSource.fetchFilterOptions?.bind(dataSource), getPage: async () => ({ items: [], totalCount: 0 }) };
+  const { filterOptions, loadingOptions } = useFilterOptions(filterOptionsAdapter, ['category']);
 
-  // Fetch data when params change
   useEffect(() => {
-    dataSource.getPage({ page, pageSize, sortBy, sortDirection, filters: multiSelectFilters })
+    dataSource.fetchPage({ page, pageSize, sort: sortBy ? { field: sortBy, direction: sortDirection } : undefined, filters })
       .then(({ items, totalCount }) => {
         setItems(items);
         setTotalCount(totalCount);
       });
-  }, [page, pageSize, sortBy, sortDirection, multiSelectFilters]);
+  }, [page, pageSize, sortBy, sortDirection, filters]);
 
   return (
     <>
@@ -229,18 +262,16 @@ function ProductTable() {
         sortBy={sortBy}
         sortDirection={sortDirection}
         onColumnSort={(col) => {
-          if (sortBy === col) {
-            setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
-          } else {
-            setSortBy(col);
-            setSortDirection('asc');
-          }
+          if (sortBy === col) setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
+          else { setSortBy(col); setSortDirection('asc'); }
         }}
         visibleColumns={visibleColumns}
         multiSelectFilters={multiSelectFilters}
-        onMultiSelectFilterChange={(key, values) => {
-          setMultiSelectFilters(prev => ({ ...prev, [key]: values }));
-        }}
+        onMultiSelectFilterChange={(key, values) => setFilters(prev => ({ ...prev, [key]: values.length ? values : undefined }))}
+        textFilters={textFilters}
+        onTextFilterChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value || undefined }))}
+        peopleFilters={peopleFilters}
+        onPeopleFilterChange={(key, user) => setFilters(prev => ({ ...prev, [key]: user }))}
         filterOptions={filterOptions}
         loadingFilterOptions={loadingOptions}
       />
@@ -261,21 +292,22 @@ function ProductTable() {
 
 ## Connecting to your API (server-side)
 
-- **Implement `IDataGridDataSource<T>`**: your adapter around whatever backend you use (REST, Graph, etc.). Implement `getPage(params)` and optionally `getFilterOptions(field)`, `peopleSearch(query)`, `getUserByEmail(email)`.
-- **Map `params` to your query**: `page`, `pageSize`, `sortBy`, `sortDirection`, and `filters` come from the grid; you translate them into query params or a request body.
-- **Return `{ items, totalCount }`**: `items` is the current page of rows, `totalCount` is the total number of rows on the server so pagination can be computed.
+- **Implement `IDataSource<T>`**: your adapter around whatever backend you use (REST, Graph, etc.). Implement `fetchPage(params: IFetchParams)` and optionally `fetchFilterOptions(field)`, `searchPeople(query)`, `getUserByEmail(email)`.
+- **`IFetchParams`** includes `page`, `pageSize`, `sort?: { field, direction }`, and **`filters: IFilters`** (unified: text = string, multi-select = string[], people = UserLike).
+- **Return `{ items, totalCount }`**: `items` is the current page of rows, `totalCount` is the total so pagination can be computed.
 
 Example shape:
 
 ```ts
-const dataSource: IDataGridDataSource<Project> = {
-  async getPage({ page, pageSize, sortBy, sortDirection, filters }) {
+const dataSource: IDataSource<Project> = {
+  async fetchPage({ page, pageSize, sort, filters }) {
+    const f = filters || {};
     const query = new URLSearchParams({
       page: String(page),
       pageSize: String(pageSize),
-      sortBy: sortBy ?? '',
-      sortDirection,
-      status: (filters.status ?? []).join(','),
+      sortBy: sort?.field ?? '',
+      sortDirection: sort?.direction ?? 'asc',
+      status: Array.isArray(f.status) ? f.status.join(',') : '',
     });
 
     const res = await fetch(`/api/projects?${query.toString()}`);
@@ -284,7 +316,7 @@ const dataSource: IDataGridDataSource<Project> = {
 };
 ```
 
-The full worked example is in the section above (`DataGridTable + IDataGridDataSource`).
+For low-level control (e.g. URL sync), use `DataGridTable` + `PaginationControls` with your own state and `toDataGridFilterProps(filters)` to pass filter state to the grid. The legacy `IDataGridDataSource` / `IDataGridQueryParams` are still supported but deprecated in favor of `IDataSource` and `IFetchParams`.
 
 ## Filtering patterns
 
@@ -342,26 +374,35 @@ Or return a span with a class and style it via your own CSS.
 
 #### `FluentDataTable<T>`
 
-Full table with column chooser, filters, and pagination. Use for **client-side** data (in-memory list). Sort, filter, and page state are managed internally.
+Full table with column chooser, filters, and pagination. Use **`data`** for client-side (in-memory) or **`dataSource`** for server-side. State is uncontrolled by default; pass `page`, `sort`, `filters`, etc. for controlled mode.
 
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
-| `items` | `T[]` | Yes | Array of data items |
 | `columns` | `IColumnDef<T>[]` | Yes | Column definitions |
 | `getRowId` | `(item: T) => string` | Yes | Function to get unique row ID |
-| `filterOptions` | `Record<string, string[]>` | Yes | Options for multi-select filters (keyed by filter field) |
-| `loadingFilterOptions` | `Record<string, boolean>` | No | Loading state per filter field |
-| `peopleSearch` | `(query: string) => Promise<UserLike[]>` | No | People search for people-picker columns |
-| `getUserByEmail` | `(email: string) => Promise<UserLike \| undefined>` | No | Lookup user by email |
-| `entityLabelPlural` | `string` | No | Label for pagination (e.g. "projects"). Default `"items"` |
-| `defaultPageSize` | `number` | No | Initial rows per page. Default `20` |
-| `defaultSortBy` | `string` | No | Initial sort column. Omit to use first column |
-| `defaultSortDirection` | `'asc' \| 'desc'` | No | Initial sort direction. Default `'asc'` |
-| `emptyStateMessage` | `React.ReactNode` | No | Custom message when no results (replaces default text) |
-| `emptyStateRender` | `() => React.ReactNode` | No | Custom empty state content (replaces default block) |
-| `title` | `React.ReactNode` | No | Optional title above the grid |
-| `className` | `string` | No | CSS class on the wrapper |
-| `layoutMode` | `'content' \| 'fill'` | No | `content` = shrink to content; `fill` = fill container. Default `'content'` |
+| `data` | `T[]` | One of data/dataSource | Client-side: array; grid filters/sorts/pages in memory. Multi-select options derived from data. |
+| `dataSource` | `IDataSource<T>` | One of data/dataSource | Server-side: implement `fetchPage`, optionally `fetchFilterOptions`, `searchPeople`, `getUserByEmail`. |
+| `page` | `number` | No | Controlled: current page (1-based). Omit for uncontrolled. |
+| `pageSize` | `number` | No | Controlled: page size. Omit for uncontrolled. |
+| `sort` | `{ field: string; direction: 'asc' \| 'desc' }` | No | Controlled: sort. Omit for uncontrolled. |
+| `filters` | `IFilters` | No | Controlled: unified filters (text = string, multi-select = string[], people = UserLike). Omit for uncontrolled. |
+| `visibleColumns` | `Set<string>` | No | Controlled: visible column IDs. Omit for uncontrolled. |
+| `onPageChange` | `(page: number) => void` | No | Called when page changes. |
+| `onPageSizeChange` | `(size: number) => void` | No | Called when page size changes. |
+| `onSortChange` | `(sort: { field: string; direction: 'asc' \| 'desc' }) => void` | No | Called when sort changes. |
+| `onFiltersChange` | `(filters: IFilters) => void` | No | Called when filters change. |
+| `onVisibleColumnsChange` | `(cols: Set<string>) => void` | No | Called when column visibility changes. |
+| `defaultPageSize` | `number` | No | Uncontrolled: initial page size. Default `20`. |
+| `defaultSortBy` | `string` | No | Uncontrolled: initial sort column. Omit to use first column. |
+| `defaultSortDirection` | `'asc' \| 'desc'` | No | Uncontrolled: initial sort direction. Default `'asc'`. |
+| `toolbar` | `React.ReactNode` | No | Optional toolbar (e.g. export button) next to column chooser. |
+| `emptyState` | `{ message?: React.ReactNode; render?: () => React.ReactNode }` | No | Custom empty state: `message` = text; `render` = full content. |
+| `entityLabelPlural` | `string` | No | Label for pagination (e.g. "projects"). Default `"items"`. |
+| `title` | `React.ReactNode` | No | Optional title above the grid. |
+| `className` | `string` | No | CSS class on the wrapper. |
+| `layoutMode` | `'content' \| 'fill'` | No | `content` = shrink to content; `fill` = fill container. Default `'content'`. |
+| `aria-label` | `string` | No | Accessible name when no visible label. |
+| `aria-labelledby` | `string` | No | ID of element that labels the grid. |
 
 #### `DataGridTable<T>`
 
@@ -434,7 +475,7 @@ Column header with sort indicator and filter popover. Used internally by `DataGr
 
 #### `useFilterOptions(dataSource, fields)`
 
-Loads filter options for multi-select columns via `dataSource.getFilterOptions()`.
+Loads filter options for multi-select columns. Expects an object with `getFilterOptions(field)` (e.g. legacy `IDataGridDataSource` or an adapter that wraps `IDataSource.fetchFilterOptions`).
 
 ```tsx
 const { filterOptions, loadingOptions } = useFilterOptions(dataSource, ['status', 'category']);
@@ -444,40 +485,73 @@ const { filterOptions, loadingOptions } = useFilterOptions(dataSource, ['status'
 
 ### Types
 
-#### `IDataGridDataSource<T>`
+#### `IDataSource<T>` (recommended)
 
-Data adapter interface. Implement this to connect the grid to your API.
+Data source interface for server-side data. Use with `FluentDataTable` via `dataSource` or with your own state + `DataGridTable`.
 
 ```typescript
-interface IDataGridDataSource<T> {
-  /** Fetch a page of data with sorting and filtering. */
-  getPage(params: IDataGridQueryParams): Promise<{ items: T[]; totalCount: number }>;
-
-  /** Fetch distinct values for a filter field (for multi-select dropdowns). */
-  getFilterOptions?(field: string): Promise<string[]>;
-
-  /** Search for people (for people picker columns). */
-  peopleSearch?(query: string): Promise<UserLike[]>;
-
-  /** Lookup a user by email (for restoring people filters from URL). */
+interface IDataSource<T> {
+  fetchPage(params: IFetchParams): Promise<IPageResult<T>>;
+  fetchFilterOptions?(field: string): Promise<string[]>;
+  searchPeople?(query: string): Promise<UserLike[]>;
   getUserByEmail?(email: string): Promise<UserLike | undefined>;
 }
 ```
 
-#### `IDataGridQueryParams`
+#### `IFetchParams`
 
-Parameters passed to `getPage()`.
+Parameters passed to `fetchPage()`.
 
 ```typescript
-interface IDataGridQueryParams {
+interface IFetchParams {
   page: number;
   pageSize: number;
-  sortBy?: string;
-  sortDirection: 'asc' | 'desc';
-  /** Filter values keyed by filter field. Text/multiSelect: string or string[]. People: pass the selected user's email (or id) as a string for that key so the server can filter (e.g. filters.ownerEmail = selectedUser?.email). */
-  filters: Record<string, string | string[]>;
+  sort?: { field: string; direction: 'asc' | 'desc' };
+  filters: IFilters;
 }
 ```
+
+#### `IFilters`
+
+Unified filter values: text (string), multi-select (string[]), or people (UserLike). One object instead of three separate maps.
+
+```typescript
+interface IFilters {
+  [field: string]: string | string[] | UserLike | undefined;
+}
+```
+
+#### `IPageResult<T>`
+
+Return type of `fetchPage()`.
+
+```typescript
+interface IPageResult<T> {
+  items: T[];
+  totalCount: number;
+}
+```
+
+#### `toDataGridFilterProps(filters)`
+
+Splits `IFilters` into the three props expected by `DataGridTable`: `multiSelectFilters`, `textFilters`, `peopleFilters`. Use when you hold unified `filters` state and pass to the grid.
+
+```typescript
+import { toDataGridFilterProps } from '@alaarab/fluent-data-table';
+const { multiSelectFilters, textFilters, peopleFilters } = toDataGridFilterProps(filters);
+```
+
+#### `toLegacyFilters(filters)`
+
+Converts `IFilters` to `Record<string, string | string[]>` (e.g. for backend query params). UserLike values become their `email` string.
+
+#### `IDataGridDataSource<T>` (deprecated)
+
+Use **`IDataSource<T>`** instead. Legacy adapter: `getPage(params: IDataGridQueryParams)` and optional `getFilterOptions`, `peopleSearch`, `getUserByEmail`. Still supported for backward compatibility.
+
+#### `IDataGridQueryParams` (deprecated)
+
+Use **`IFetchParams`** and **`IFilters`** instead. Legacy params: `page`, `pageSize`, `sortBy`, `sortDirection`, `filters: Record<string, string | string[]>`.
 
 #### `IColumnDef<T>`
 
@@ -546,7 +620,7 @@ triggerCsvDownload(csv, 'export.csv');
 ```
 DataTable/
 ├── index.ts                      # Public exports
-├── dataGridTypes.ts              # IDataGridDataSource, IDataGridQueryParams, UserLike
+├── dataGridTypes.ts              # IDataSource, IFetchParams, IFilters, IPageResult, toDataGridFilterProps, toLegacyFilters, UserLike; deprecated IDataGridDataSource, IDataGridQueryParams
 ├── columnTypes.ts                # IColumnDef, IColumnFilterDef, IColumnMeta
 ├── exportToCsv.ts                # CSV export utilities
 ├── DataGridTable/
@@ -611,25 +685,29 @@ For local development with your `ProjectCenter` app:
    npm pack
    ```
 
-   This will create a tarball like `alaarab-fluent-data-table-1.0.0.tgz`.
+   This will create a tarball like `alaarab-fluent-data-table-1.2.0.tgz`.
 
 2. In `ProjectCenter`, install the tarball:
 
    ```bash
    cd ../ProjectCenter
-   npm install ../FluentDataTable/alaarab-fluent-data-table-1.0.0.tgz
+   npm install ../FluentDataTable/alaarab-fluent-data-table-1.2.0.tgz
    ```
+
+   Or use a local path in `package.json`: `"@alaarab/fluent-data-table": "file:../FluentDataTable"`, then `npm install`.
 
 3. Update imports in `ProjectCenter` table code from local paths to the package:
 
    ```ts
    import {
      DataGridTable,
-     ColumnChooser,
      PaginationControls,
      useFilterOptions,
      type IColumnDef,
-     type IDataGridDataSource,
+     type IDataSource,
+     type IFetchParams,
+     type IFilters,
+     toUserLike,
    } from '@alaarab/fluent-data-table';
    ```
 
@@ -651,13 +729,13 @@ For local development with your `ProjectCenter` app:
 
 ## Design Decisions
 
-### Why Data Source Pattern?
+### Why data source pattern?
 
-The `IDataGridDataSource<T>` abstraction keeps the grid **agnostic of your API**:
+The **`IDataSource<T>`** abstraction keeps the grid agnostic of your API:
 - Grid doesn't know about REST, GraphQL, or local data
-- Host maps grid params to API calls
-- Easy to swap backends or add caching
-- Testable with mock data sources
+- Host implements `fetchPage(IFetchParams)` and maps `filters` (IFilters) to your API
+- One **unified `filters`** object (text, multi-select, people) instead of three separate state maps
+- Easy to swap backends or add caching; testable with mock data sources
 
 ### Why Controlled State?
 

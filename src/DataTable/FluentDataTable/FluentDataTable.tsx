@@ -1,43 +1,60 @@
 import * as React from 'react';
-import { useMemo, useCallback, useState } from 'react';
+import { useMemo, useCallback, useState, useEffect, useRef } from 'react';
 import { DataGridTable } from '../DataGridTable/DataGridTable';
 import type { IDataGridTableProps } from '../DataGridTable/DataGridTable';
 import { ColumnChooser, type IColumnDefinition } from '../ColumnChooser/ColumnChooser';
 import { PaginationControls } from '../PaginationControls/PaginationControls';
+import { useFilterOptions } from '../hooks/useFilterOptions';
 import type { IColumnDef } from '../columnTypes';
-import type { UserLike } from '../dataGridTypes';
+import type { UserLike, IFilters, IDataSource } from '../dataGridTypes';
+import { toDataGridFilterProps } from '../dataGridTypes';
 
 export interface IFluentDataTableProps<T> {
-  items: T[];
   columns: IColumnDef<T>[];
   getRowId: (item: T) => string;
-  filterOptions: Record<string, string[]>;
-  loadingFilterOptions?: Record<string, boolean>;
-  peopleSearch?: (query: string) => Promise<UserLike[]>;
-  getUserByEmail?: (email: string) => Promise<UserLike | undefined>;
-  entityLabelPlural?: string;
-  defaultPageSize?: number;
-  /** Initial sort column (defaults to first column if not set). */
-  defaultSortBy?: string;
-  /** Initial sort direction (defaults to 'asc'). */
-  defaultSortDirection?: 'asc' | 'desc';
-  /** Custom empty state message (when no results). */
-  emptyStateMessage?: React.ReactNode;
-  /** Custom empty state content (replaces default message when provided). */
-  emptyStateRender?: () => React.ReactNode;
-  title?: React.ReactNode;
-  className?: string;
 
-  /**
-   * Layout mode for column sizing.
-   * - content: grid shrinks to content (no giant last column / trailing blank space)
-   * - fill: grid fills the container (traditional full-width table)
-   */
+  /** Client-side: pass an array; grid filters/sorts/pages in memory. */
+  data?: T[];
+  /** Server-side: pass a data source; grid calls fetchPage with params. */
+  dataSource?: IDataSource<T>;
+
+  /** Controlled: current page (1-based). Omit for uncontrolled. */
+  page?: number;
+  /** Controlled: page size. Omit for uncontrolled. */
+  pageSize?: number;
+  /** Controlled: sort. Omit for uncontrolled. */
+  sort?: { field: string; direction: 'asc' | 'desc' };
+  /** Controlled: unified filters. Omit for uncontrolled. */
+  filters?: IFilters;
+  /** Controlled: visible column ids. Omit for uncontrolled. */
+  visibleColumns?: Set<string>;
+
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
+  onSortChange?: (sort: { field: string; direction: 'asc' | 'desc' }) => void;
+  onFiltersChange?: (filters: IFilters) => void;
+  onVisibleColumnsChange?: (cols: Set<string>) => void;
+
+  /** Initial page size when uncontrolled (default 20). */
+  defaultPageSize?: number;
+  /** Initial sort field when uncontrolled. */
+  defaultSortBy?: string;
+  /** Initial sort direction when uncontrolled (default 'asc'). */
+  defaultSortDirection?: 'asc' | 'desc';
+
+  toolbar?: React.ReactNode;
+  emptyState?: { message?: React.ReactNode; render?: () => React.ReactNode };
+  entityLabelPlural?: string;
+  className?: string;
+  title?: React.ReactNode;
+
   layoutMode?: 'content' | 'fill';
+
+  'aria-label'?: string;
+  'aria-labelledby'?: string;
 }
 
 const DEFAULT_PAGE_SIZE = 20;
-const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 function getFilterField<T>(col: IColumnDef<T>): string {
   const f = col.filterable && typeof col.filterable === 'object' ? col.filterable : null;
@@ -48,151 +65,305 @@ function getRowValue<T>(item: T, key: string): unknown {
   return (item as Record<string, unknown>)[key];
 }
 
+/** Merge a single filter change into a full IFilters object. */
+function mergeFilter(
+  prev: IFilters,
+  key: string,
+  value: string | string[] | UserLike | undefined
+): IFilters {
+  const next = { ...prev };
+  const isEmpty =
+    value === undefined ||
+    (Array.isArray(value) && value.length === 0) ||
+    (typeof value === 'string' && value.trim() === '');
+  const isPlainObjectWithoutEmail =
+    typeof value === 'object' && value !== null && !Array.isArray(value) && !('email' in value);
+  if (isEmpty || isPlainObjectWithoutEmail) {
+    delete next[key];
+  } else {
+    next[key] = value;
+  }
+  return next;
+}
+
+/** Derive filter options for multiSelect columns from client-side data. */
+function deriveFilterOptionsFromData<T>(items: T[], columns: IColumnDef<T>[]): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  columns.forEach((col) => {
+    const f = col.filterable && typeof col.filterable === 'object' ? col.filterable : null;
+    if (f?.type !== 'multiSelect') return;
+    const field = getFilterField(col);
+    const values = new Set<string>();
+    items.forEach((item) => {
+      const v = getRowValue(item, col.columnId);
+      if (v != null && v !== '') values.add(String(v));
+    });
+    out[field] = Array.from(values).sort();
+  });
+  return out;
+}
+
+/** Get list of filter fields that use multiSelect (for useFilterOptions). */
+function getMultiSelectFilterFields<T>(columns: IColumnDef<T>[]): string[] {
+  const fields: string[] = [];
+  columns.forEach((col) => {
+    const f = col.filterable && typeof col.filterable === 'object' ? col.filterable : null;
+    if (f?.type === 'multiSelect') fields.push(getFilterField(col));
+  });
+  return fields;
+}
+
 /**
- * FluentDataTable – full table with column chooser, filters, and pagination.
- * Use for client-side data: pass items and columns; sort/filter/page are managed internally.
- * For server-side data, use DataGridTable + ColumnChooser + PaginationControls with your own state.
+ * FluentDataTable – one component for client-side (data) or server-side (dataSource).
+ * Unified filters, optional controlled state. Uses DataGridTable internally.
  */
 export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.ReactElement {
   const {
-    items,
     columns,
     getRowId,
-    filterOptions,
-    loadingFilterOptions = {},
-    peopleSearch,
-    getUserByEmail,
-    entityLabelPlural = 'items',
+    data,
+    dataSource,
+    page: controlledPage,
+    pageSize: controlledPageSize,
+    sort: controlledSort,
+    filters: controlledFilters,
+    visibleColumns: controlledVisibleColumns,
+    onPageChange,
+    onPageSizeChange,
+    onSortChange,
+    onFiltersChange,
+    onVisibleColumnsChange,
     defaultPageSize = DEFAULT_PAGE_SIZE,
     defaultSortBy,
     defaultSortDirection = 'asc',
-    emptyStateMessage,
-    emptyStateRender,
-    title,
+    toolbar,
+    emptyState,
+    entityLabelPlural = 'items',
     className,
+    title,
     layoutMode = 'content',
+    'aria-label': ariaLabel,
+    'aria-labelledby': ariaLabelledBy,
   } = props;
 
-  const [sortState, setSortState] = useState<{ sortBy: string | undefined; sortDirection: 'asc' | 'desc' }>(() => ({
-    sortBy: defaultSortBy ?? columns[0]?.columnId,
-    sortDirection: defaultSortDirection,
-  }));
-  const sortBy = sortState.sortBy;
-  const sortDirection = sortState.sortDirection;
-  const [visibleColumns, setVisibleColumns] = useState<Set<string>>(() => {
-    const visible = columns
-      .filter((c) => c.defaultVisible !== false)
-      .map((c) => c.columnId);
+  const isServerSide = dataSource != null;
+  const isClientSide = data != null;
+  if (!isServerSide && !isClientSide) {
+    throw new Error('FluentDataTable requires either data (client-side) or dataSource (server-side).');
+  }
+  if (isServerSide && isClientSide) {
+    throw new Error('FluentDataTable: pass either data or dataSource, not both.');
+  }
+
+  const defaultSortField = defaultSortBy ?? columns[0]?.columnId;
+
+  const [internalPage, setInternalPage] = useState(1);
+  const [internalPageSize, setInternalPageSize] = useState(defaultPageSize);
+  const [internalSort, setInternalSort] = useState<{ field: string; direction: 'asc' | 'desc' }>({
+    field: defaultSortField,
+    direction: defaultSortDirection,
+  });
+  const [internalFilters, setInternalFilters] = useState<IFilters>({});
+  const [internalVisibleColumns, setInternalVisibleColumns] = useState<Set<string>>(() => {
+    const visible = columns.filter((c) => c.defaultVisible !== false).map((c) => c.columnId);
     return new Set(visible.length > 0 ? visible : columns.map((c) => c.columnId));
   });
-  const [multiSelectFilters, setMultiSelectFilters] = useState<Record<string, string[]>>({});
-  const [textFilters, setTextFilters] = useState<Record<string, string>>({});
-  const [peopleFilters, setPeopleFilters] = useState<Record<string, UserLike | undefined>>({});
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(defaultPageSize);
 
-  const handleSort = useCallback((columnKey: string) => {
-    setSortState((prev) => ({
-      sortBy: columnKey,
-      sortDirection:
-        prev.sortBy === columnKey ? (prev.sortDirection === 'asc' ? 'desc' : 'asc') : 'asc',
-    }));
-  }, []);
+  const page = controlledPage ?? internalPage;
+  const pageSize = controlledPageSize ?? internalPageSize;
+  const sort = controlledSort ?? internalSort;
+  const filters = controlledFilters ?? internalFilters;
+  const visibleColumns = controlledVisibleColumns ?? internalVisibleColumns;
 
-  const handleMultiSelectFilterChange = useCallback((key: string, values: string[]) => {
-    setMultiSelectFilters((prev) => ({ ...prev, [key]: values }));
-    setPage(1);
-  }, []);
+  const setPage = useCallback(
+    (p: number) => {
+      if (controlledPage === undefined) setInternalPage(p);
+      onPageChange?.(p);
+    },
+    [controlledPage, onPageChange]
+  );
+  const setPageSize = useCallback(
+    (size: number) => {
+      if (controlledPageSize === undefined) setInternalPageSize(size);
+      onPageSizeChange?.(size);
+      setPage(1);
+    },
+    [controlledPageSize, onPageSizeChange, setPage]
+  );
+  const setSort = useCallback(
+    (s: { field: string; direction: 'asc' | 'desc' }) => {
+      if (controlledSort === undefined) setInternalSort(s);
+      onSortChange?.(s);
+      setPage(1);
+    },
+    [controlledSort, onSortChange, setPage]
+  );
+  const setFilters = useCallback(
+    (f: IFilters) => {
+      if (controlledFilters === undefined) setInternalFilters(f);
+      onFiltersChange?.(f);
+      setPage(1);
+    },
+    [controlledFilters, onFiltersChange, setPage]
+  );
+  const setVisibleColumns = useCallback(
+    (cols: Set<string>) => {
+      if (controlledVisibleColumns === undefined) setInternalVisibleColumns(cols);
+      onVisibleColumnsChange?.(cols);
+    },
+    [controlledVisibleColumns, onVisibleColumnsChange]
+  );
 
-  const handleTextFilterChange = useCallback((key: string, value: string) => {
-    setTextFilters((prev) => ({ ...prev, [key]: value }));
-    setPage(1);
-  }, []);
+  const { multiSelectFilters, textFilters, peopleFilters } = useMemo(
+    () => toDataGridFilterProps(filters),
+    [filters]
+  );
 
-  const handlePeopleFilterChange = useCallback((key: string, user: UserLike | undefined) => {
-    setPeopleFilters((prev) => ({ ...prev, [key]: user }));
-    setPage(1);
-  }, []);
+  const handleSort = useCallback(
+    (columnKey: string) => {
+      setSort({
+        field: columnKey,
+        direction: sort.field === columnKey && sort.direction === 'asc' ? 'desc' : 'asc',
+      });
+    },
+    [sort, setSort]
+  );
 
-  const handleVisibilityChange = useCallback((columnKey: string, isVisible: boolean) => {
-    setVisibleColumns((prev) => {
-      const next = new Set(prev);
+  const handleMultiSelectFilterChange = useCallback(
+    (key: string, values: string[]) => {
+      setFilters(mergeFilter(filters, key, values.length ? values : undefined));
+    },
+    [filters, setFilters]
+  );
+  const handleTextFilterChange = useCallback(
+    (key: string, value: string) => {
+      setFilters(mergeFilter(filters, key, value.trim() || undefined));
+    },
+    [filters, setFilters]
+  );
+  const handlePeopleFilterChange = useCallback(
+    (key: string, user: UserLike | undefined) => {
+      setFilters(mergeFilter(filters, key, user ?? undefined));
+    },
+    [filters, setFilters]
+  );
+
+  const handleVisibilityChange = useCallback(
+    (columnKey: string, isVisible: boolean) => {
+      const next = new Set(visibleColumns);
       if (isVisible) next.add(columnKey);
       else next.delete(columnKey);
-      return next;
-    });
-  }, []);
+      setVisibleColumns(next);
+    },
+    [visibleColumns, setVisibleColumns]
+  );
 
-  const filteredAndSorted = useMemo(() => {
-    let rows = items.slice();
+  const multiSelectFilterFields = useMemo(() => getMultiSelectFilterFields(columns), [columns]);
 
+  const filterOptionsDataSource = useMemo(() => {
+    if (dataSource?.fetchFilterOptions) {
+      return {
+        getFilterOptions: dataSource.fetchFilterOptions.bind(dataSource),
+        getPage: async () => ({ items: [], totalCount: 0 }),
+      };
+    }
+    return { getFilterOptions: undefined, getPage: async () => ({ items: [], totalCount: 0 }) };
+  }, [dataSource]);
+
+  const { filterOptions: serverFilterOptions, loadingOptions: loadingFilterOptions } = useFilterOptions(
+    filterOptionsDataSource as Parameters<typeof useFilterOptions>[0],
+    multiSelectFilterFields
+  );
+
+  const clientFilterOptions = useMemo(() => {
+    if (dataSource != null && dataSource.fetchFilterOptions) return serverFilterOptions;
+    return deriveFilterOptionsFromData(data ?? [], columns);
+  }, [dataSource, data, columns, serverFilterOptions]);
+
+  const clientItemsAndTotal = useMemo(() => {
+    if (!isClientSide || data == null) return null;
+    let rows = (data as T[]).slice();
     columns.forEach((col) => {
       const filterKey = getFilterField(col);
       const f = col.filterable && typeof col.filterable === 'object' ? col.filterable : null;
       const type = f?.type;
-
-      if (type === 'multiSelect') {
-        const selected = multiSelectFilters[filterKey];
-        if (selected && selected.length > 0) {
-          rows = rows.filter((r) => {
-            const val = getRowValue(r, col.columnId);
-            return selected.includes(String(val));
-          });
-        }
-      } else if (type === 'text') {
-        const text = textFilters[filterKey]?.trim().toLowerCase();
-        if (text) {
-          rows = rows.filter((r) => {
-            const val = getRowValue(r, col.columnId);
-            return String(val ?? '').toLowerCase().includes(text);
-          });
-        }
-      } else if (type === 'people') {
-        const user = peopleFilters[filterKey];
-        if (user?.email) {
-          const email = user.email.toLowerCase();
-          rows = rows.filter((r) => {
-            const val = getRowValue(r, col.columnId);
-            return String(val ?? '').toLowerCase() === email;
-          });
-        }
+      const val = filters[filterKey];
+      if (type === 'multiSelect' && Array.isArray(val) && val.length > 0) {
+        rows = rows.filter((r) => val.includes(String(getRowValue(r, col.columnId))));
+      } else if (type === 'text' && typeof val === 'string' && val.trim()) {
+        const lower = val.trim().toLowerCase();
+        rows = rows.filter((r) => String(getRowValue(r, col.columnId) ?? '').toLowerCase().includes(lower));
+      } else if (type === 'people' && val && typeof val === 'object' && 'email' in val) {
+        const email = (val as UserLike).email.toLowerCase();
+        rows = rows.filter((r) => String(getRowValue(r, col.columnId) ?? '').toLowerCase() === email);
       }
     });
-
-    if (sortBy) {
-      const col = columns.find((c) => c.columnId === sortBy);
+    if (sort.field) {
+      const col = columns.find((c) => c.columnId === sort.field);
       const compare = col?.compare;
-      const dir = sortDirection === 'asc' ? 1 : -1;
+      const dir = sort.direction === 'asc' ? 1 : -1;
       rows.sort((a, b) => {
         if (compare) return compare(a, b) * dir;
-        const av = getRowValue(a, sortBy);
-        const bv = getRowValue(b, sortBy);
+        const av = getRowValue(a, sort.field);
+        const bv = getRowValue(b, sort.field);
         if (av == null && bv == null) return 0;
         if (av == null) return -1 * dir;
         if (bv == null) return 1 * dir;
-        if (typeof av === 'number' && typeof bv === 'number') {
-          return av === bv ? 0 : av > bv ? dir : -dir;
-        }
+        if (typeof av === 'number' && typeof bv === 'number') return av === bv ? 0 : av > bv ? dir : -dir;
         const as = String(av).toLowerCase();
         const bs = String(bv).toLowerCase();
-        if (as === bs) return 0;
-        return as > bs ? dir : -dir;
+        return as === bs ? 0 : as > bs ? dir : -dir;
       });
     }
+    const total = rows.length;
+    const start = (page - 1) * pageSize;
+    const paged = rows.slice(start, start + pageSize);
+    return { items: paged, totalCount: total };
+  }, [isClientSide, data, columns, filters, sort.field, sort.direction, page, pageSize]);
 
-    return rows;
-  }, [items, columns, multiSelectFilters, textFilters, peopleFilters, sortBy, sortDirection]);
+  const [serverItems, setServerItems] = useState<T[]>([]);
+  const [serverTotalCount, setServerTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const fetchIdRef = useRef(0);
 
-  const totalCount = filteredAndSorted.length;
-  const start = (page - 1) * pageSize;
-  const pagedItems = filteredAndSorted.slice(start, start + pageSize);
+  useEffect(() => {
+    if (!isServerSide || !dataSource) {
+      if (!isServerSide) setLoading(false);
+      return;
+    }
+    const id = ++fetchIdRef.current;
+    setLoading(true);
+    dataSource
+      .fetchPage({
+        page,
+        pageSize,
+        sort: { field: sort.field, direction: sort.direction },
+        filters,
+      })
+      .then((res) => {
+        if (id !== fetchIdRef.current) return;
+        setServerItems(res.items);
+        setServerTotalCount(res.totalCount);
+      })
+      .catch((err) => {
+        if (id !== fetchIdRef.current) return;
+        console.error('FluentDataTable fetchPage error:', err);
+        setServerItems([]);
+        setServerTotalCount(0);
+      })
+      .finally(() => {
+        if (id === fetchIdRef.current) setLoading(false);
+      });
+  }, [isServerSide, dataSource, page, pageSize, sort.field, sort.direction, filters]);
+
+  const displayItems = isClientSide && clientItemsAndTotal ? clientItemsAndTotal.items : serverItems;
+  const displayTotalCount = isClientSide && clientItemsAndTotal ? clientItemsAndTotal.totalCount : serverTotalCount;
 
   const hasActiveFilters = useMemo(() => {
-    if (Object.values(multiSelectFilters).some((arr) => arr && arr.length > 0)) return true;
-    if (Object.values(textFilters).some((v) => v?.trim())) return true;
-    if (Object.values(peopleFilters).some((u) => u != null)) return true;
-    return false;
-  }, [multiSelectFilters, textFilters, peopleFilters]);
+    return Object.values(filters).some(
+      (v) => v !== undefined && (Array.isArray(v) ? v.length > 0 : typeof v === 'string' ? v.trim() !== '' : true)
+    );
+  }, [filters]);
 
   const columnChooserColumns: IColumnDefinition[] = useMemo(
     () =>
@@ -205,11 +376,11 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
   );
 
   const dataGridProps: IDataGridTableProps<T> = {
-    items: pagedItems,
+    items: displayItems,
     columns,
     getRowId,
-    sortBy,
-    sortDirection,
+    sortBy: sort.field,
+    sortDirection: sort.direction,
     onColumnSort: handleSort,
     visibleColumns,
     multiSelectFilters,
@@ -218,21 +389,18 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
     onTextFilterChange: handleTextFilterChange,
     peopleFilters,
     onPeopleFilterChange: handlePeopleFilterChange,
-    filterOptions,
-    loadingFilterOptions,
-    peopleSearch,
-    getUserByEmail,
+    filterOptions: clientFilterOptions,
+    loadingFilterOptions: dataSource?.fetchFilterOptions ? loadingFilterOptions : {},
+    peopleSearch: dataSource?.searchPeople,
+    getUserByEmail: dataSource?.getUserByEmail,
     layoutMode,
+    'aria-label': ariaLabel,
+    'aria-labelledby': ariaLabelledBy,
     emptyState: {
       hasActiveFilters,
-      onClearAll: () => {
-        setTextFilters({});
-        setMultiSelectFilters({});
-        setPeopleFilters({});
-        setPage(1);
-      },
-      message: emptyStateMessage,
-      render: emptyStateRender,
+      onClearAll: () => setFilters({}),
+      message: emptyState?.message,
+      render: emptyState?.render,
     },
   };
 
@@ -240,6 +408,7 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
     <div className={className} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         {title != null ? <div style={{ margin: 0 }}>{title}</div> : null}
+        {toolbar}
         <ColumnChooser
           columns={columnChooserColumns}
           visibleColumns={visibleColumns}
@@ -247,12 +416,16 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
         />
       </div>
 
-      <DataGridTable<T> {...dataGridProps} />
+      {isServerSide && loading && displayItems.length === 0 ? (
+        <div style={{ padding: 24, textAlign: 'center' }}>Loading...</div>
+      ) : (
+        <DataGridTable<T> {...dataGridProps} />
+      )}
 
       <PaginationControls
         currentPage={page}
         pageSize={pageSize}
-        totalCount={totalCount}
+        totalCount={displayTotalCount}
         onPageChange={setPage}
         onPageSizeChange={(size) => {
           setPageSize(size);

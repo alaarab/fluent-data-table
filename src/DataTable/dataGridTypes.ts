@@ -17,6 +17,64 @@ export function toUserLike(
   };
 }
 
+/** Unified filter values: text (string), multi-select (string[]), or people (UserLike). */
+export interface IFilters {
+  [field: string]: string | string[] | UserLike | undefined;
+}
+
+/** Split IFilters into DataGridTable's multiSelect, text, and people props. */
+export function toDataGridFilterProps(filters: IFilters): {
+  multiSelectFilters: Record<string, string[]>;
+  textFilters: Record<string, string>;
+  peopleFilters: Record<string, UserLike | undefined>;
+} {
+  const multiSelectFilters: Record<string, string[]> = {};
+  const textFilters: Record<string, string> = {};
+  const peopleFilters: Record<string, UserLike | undefined> = {};
+  for (const [key, value] of Object.entries(filters)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) multiSelectFilters[key] = value;
+    else if (typeof value === 'string') textFilters[key] = value;
+    else if (typeof value === 'object' && value !== null && 'email' in value) peopleFilters[key] = value as UserLike;
+  }
+  return { multiSelectFilters, textFilters, peopleFilters };
+}
+
+/** Convert IFilters to legacy Record<string, string | string[]> (e.g. for IDataGridQueryParams). UserLike becomes email. */
+export function toLegacyFilters(filters: IFilters): Record<string, string | string[]> {
+  const out: Record<string, string | string[]> = {};
+  for (const [key, value] of Object.entries(filters)) {
+    if (value === undefined) continue;
+    if (Array.isArray(value)) out[key] = value;
+    else if (typeof value === 'string') out[key] = value;
+    else if (typeof value === 'object' && value !== null && 'email' in value) out[key] = (value as UserLike).email;
+  }
+  return out;
+}
+
+export interface IFetchParams {
+  page: number;
+  pageSize: number;
+  sort?: { field: string; direction: 'asc' | 'desc' };
+  filters: IFilters;
+}
+
+export interface IPageResult<T> {
+  items: T[];
+  totalCount: number;
+}
+
+/** New data source API: fetch a page and optionally filter options / people. */
+export interface IDataSource<T> {
+  fetchPage(params: IFetchParams): Promise<IPageResult<T>>;
+  fetchFilterOptions?(field: string): Promise<string[]>;
+  searchPeople?(query: string): Promise<UserLike[]>;
+  getUserByEmail?(email: string): Promise<UserLike | undefined>;
+}
+
+/**
+ * @deprecated Use IDataSource and IFetchParams instead.
+ */
 export interface IDataGridQueryParams {
   page: number;
   pageSize: number;
@@ -32,6 +90,9 @@ export interface IDataGridQueryParams {
   filters: Record<string, string | string[]>;
 }
 
+/**
+ * @deprecated Use IDataSource instead.
+ */
 export interface IDataGridDataSource<T> {
   getPage(params: IDataGridQueryParams): Promise<{ items: T[]; totalCount: number }>;
   getFilterOptions?(field: string): Promise<string[]>;

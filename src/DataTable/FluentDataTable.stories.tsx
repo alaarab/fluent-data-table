@@ -101,10 +101,9 @@ export const Default: Story = {
   render: () => (
     <div style={{ padding: 16 }}>
       <FluentDataTable<DemoRow>
-        items={allRows}
+        data={allRows}
         columns={columns}
         getRowId={(r) => r.id}
-        filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
         entityLabelPlural="projects"
         defaultPageSize={5}
         title={<h3 style={{ margin: 0 }}>Projects</h3>}
@@ -202,10 +201,9 @@ export const Playground: StoryObj<PlaygroundArgs> = {
         <div style={{ padding: 16 }}>
           <div style={{ width: containerWidthPx, maxWidth: '100%' }}>
             <FluentDataTable<DemoRow>
-              items={allRows.slice(0, Math.max(0, Math.min(allRows.length, rowCount)))}
+              data={allRows.slice(0, Math.max(0, Math.min(allRows.length, rowCount)))}
               columns={demoColumns}
               getRowId={(r) => r.id}
-              filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
               entityLabelPlural="projects"
               defaultPageSize={pageSize}
               defaultSortBy={defaultSortBy || undefined}
@@ -227,10 +225,9 @@ export const Playground: StoryObj<PlaygroundArgs> = {
       <div style={{ padding: 16 }}>
         <div style={{ width: containerWidthPx, maxWidth: '100%' }}>
           <FluentDataTable<WideRow>
-            items={items}
+            data={items}
             columns={sizedCols}
             getRowId={(r) => r.id}
-            filterOptions={{ status: ['Active', 'On Hold', 'Closed'], region: ['Americas', 'EMEA', 'APAC'] }}
             entityLabelPlural="rows"
             defaultPageSize={pageSize}
             defaultSortBy={defaultSortBy || undefined}
@@ -248,10 +245,9 @@ export const Empty: Story = {
   render: () => (
     <div style={{ padding: 16 }}>
       <FluentDataTable<DemoRow>
-        items={[]}
+        data={[]}
         columns={columns}
         getRowId={(r) => r.id}
-        filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
         entityLabelPlural="projects"
         title={<h3 style={{ margin: 0 }}>Projects</h3>}
       />
@@ -263,10 +259,9 @@ export const SmallDataSet: Story = {
   render: () => (
     <div style={{ padding: 16 }}>
       <FluentDataTable<DemoRow>
-        items={allRows.slice(0, 3)}
+        data={allRows.slice(0, 3)}
         columns={columns}
         getRowId={(r) => r.id}
-        filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
         entityLabelPlural="projects"
         defaultPageSize={10}
         title={<h3 style={{ margin: 0 }}>Few projects</h3>}
@@ -279,10 +274,9 @@ export const LargePageSize: Story = {
   render: () => (
     <div style={{ padding: 16 }}>
       <FluentDataTable<DemoRow>
-        items={allRows}
+        data={allRows}
         columns={columns}
         getRowId={(r) => r.id}
-        filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
         entityLabelPlural="projects"
         defaultPageSize={50}
         title={<h3 style={{ margin: 0 }}>All on one page</h3>}
@@ -295,10 +289,9 @@ export const DefaultSort: Story = {
   render: () => (
     <div style={{ padding: 16 }}>
       <FluentDataTable<DemoRow>
-        items={allRows}
+        data={allRows}
         columns={columns}
         getRowId={(r) => r.id}
-        filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
         entityLabelPlural="projects"
         defaultPageSize={10}
         defaultSortBy="budget"
@@ -333,10 +326,9 @@ export const WithCsvExport: Story = {
           </button>
         </div>
         <FluentDataTable<DemoRow>
-          items={allRows}
+          data={allRows}
           columns={columns}
           getRowId={(r) => r.id}
-          filterOptions={{ status: ['Active', 'On Hold', 'Closed'] }}
           entityLabelPlural="projects"
           defaultPageSize={10}
         />
@@ -430,10 +422,9 @@ export const TenColumns: Story = {
   render: () => (
     <div style={{ padding: 16 }}>
       <FluentDataTable<WideRow>
-        items={wideRows}
+        data={wideRows}
         columns={wideColumns10}
         getRowId={(r) => r.id}
-        filterOptions={{ status: ['Active', 'On Hold', 'Closed'], region: ['Americas', 'EMEA', 'APAC'] }}
         entityLabelPlural="rows"
         defaultPageSize={10}
         title={<h3 style={{ margin: 0 }}>FluentDataTable — 10 columns</h3>}
@@ -446,10 +437,9 @@ export const TwentyColumns: Story = {
   render: () => (
     <div style={{ padding: 16 }}>
       <FluentDataTable<WideRow>
-        items={wideRows}
+        data={wideRows}
         columns={wideColumns20}
         getRowId={(r) => r.id}
-        filterOptions={{ status: ['Active', 'On Hold', 'Closed'], region: ['Americas', 'EMEA', 'APAC'] }}
         entityLabelPlural="rows"
         defaultPageSize={10}
         title={<h3 style={{ margin: 0 }}>FluentDataTable — 20 columns</h3>}
