@@ -206,6 +206,49 @@
   min-width: 0;
 }
 
+/* AG Grid-style loading overlay */
+.loadingOverlayContainer {
+  position: relative;
+}
+
+.loadingOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 60px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(1px);
+  pointer-events: all;
+  border-radius: var(--borderRadiusMedium, 4px);
+}
+
+.loadingOverlayContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 24px;
+  background: var(--colorNeutralBackground1, #ffffff);
+  border: 1px solid var(--colorNeutralStroke1, #c4c4c4);
+  border-radius: var(--borderRadiusMedium, 4px);
+  box-shadow: var(--shadow4, 0 2px 4px rgba(0, 0, 0, 0.14));
+}
+
+.loadingOverlayText {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--colorNeutralForeground2, #616161);
+}
+
+.loadingDimmed {
+  opacity: 0.6;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
 .emptyStateInGrid {
   display: flex;
   flex-direction: column;

@@ -260,18 +260,13 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
 
   const multiSelectFilterFields = useMemo(() => getMultiSelectFilterFields(columns), [columns]);
 
-  const filterOptionsDataSource = useMemo(() => {
-    if (dataSource?.fetchFilterOptions) {
-      return {
-        getFilterOptions: dataSource.fetchFilterOptions.bind(dataSource),
-        getPage: async () => ({ items: [], totalCount: 0 }),
-      };
-    }
-    return { getFilterOptions: undefined, getPage: async () => ({ items: [], totalCount: 0 }) };
-  }, [dataSource]);
+  const filterOptionsSource = useMemo(
+    () => dataSource ?? { fetchFilterOptions: undefined },
+    [dataSource]
+  );
 
   const { filterOptions: serverFilterOptions, loadingOptions: loadingFilterOptions } = useFilterOptions(
-    filterOptionsDataSource as Parameters<typeof useFilterOptions>[0],
+    filterOptionsSource,
     multiSelectFilterFields
   );
 
@@ -383,6 +378,7 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
     sortDirection: sort.direction,
     onColumnSort: handleSort,
     visibleColumns,
+    isLoading: isServerSide && loading,
     multiSelectFilters,
     onMultiSelectFilterChange: handleMultiSelectFilterChange,
     textFilters,
@@ -416,11 +412,7 @@ export function FluentDataTable<T>(props: IFluentDataTableProps<T>): React.React
         />
       </div>
 
-      {isServerSide && loading && displayItems.length === 0 ? (
-        <div style={{ padding: 24, textAlign: 'center' }}>Loading...</div>
-      ) : (
-        <DataGridTable<T> {...dataGridProps} />
-      )}
+      <DataGridTable<T> {...dataGridProps} />
 
       <PaginationControls
         currentPage={page}

@@ -1,6 +1,6 @@
 # @alaarab/fluent-data-table
 
-Full-featured, generic data table component built on [Fluent UI DataGrid](https://react.fluentui.dev/?path=/docs/components-datagrid--default). Supports sorting, filtering (text, multi-select, people picker), pagination, column visibility, resizable columns, and CSV export.
+A full-featured data grid for React, built on [Fluent UI DataGrid](https://react.fluentui.dev/?path=/docs/components-datagrid--default). Sort, filter (text, multi-select, people), paginate, show/hide columns, resize columns, and export to CSV. Use an in-memory array or plug in your own API.
 
 ## Features
 
@@ -44,9 +44,9 @@ npm install @alaarab/fluent-data-table
 
 ## Quick Start
 
-**`<FluentDataTable />`** works with either an in-memory array or a server data source. Pass **`data`** for client-side (filter/sort/page in memory) or **`dataSource`** for server-side (fetch pages from your API).
+Pass **`data`** (an array) for client-side—sort, filter, and paginate in memory. Or pass **`dataSource`** for server-side—the grid calls your API for each page.
 
-### Client-side (in-memory data)
+### Client-side
 
 ```tsx
 import { FluentDataTable, type IColumnDef } from '@alaarab/fluent-data-table';
@@ -77,9 +77,9 @@ function ProductTable() {
 }
 ```
 
-Filter options for multi-select columns are derived from the data automatically. No need to pass `filterOptions` for client-side.
+Multi-select filter options are derived from your data automatically.
 
-### Server-side (data source)
+### Server-side
 
 ```tsx
 const dataSource: IDataSource<IProduct> = {
@@ -101,13 +101,9 @@ const dataSource: IDataSource<IProduct> = {
 />
 ```
 
-For full control (URL sync, custom toolbar), use **controlled** props: `page`, `pageSize`, `sort`, `filters`, and `onPageChange`, `onSortChange`, `onFiltersChange`, etc. See [API Reference](#fluentdatatablet) below.
+For URL sync or a custom toolbar, use **controlled** props: `page`, `sort`, `filters`, and the `on*` callbacks (see [API Reference](#api-reference)). For full control, use `DataGridTable`, `PaginationControls`, and `ColumnChooser` with your own state and `toDataGridFilterProps(filters)`.
 
-For low-level control, use `DataGridTable`, `PaginationControls`, and `ColumnChooser` with your own state and pass `toDataGridFilterProps(filters)` to the grid.
-
-## Customizing the grid
-
-Use these props to tailor the grid to your layout and UX (see **Storybook → DataTable/FluentDataTable → Playground** to try them interactively).
+## Customizing
 
 ### Layout and sizing
 
@@ -184,7 +180,7 @@ For the full list of props (including controlled `page`, `sort`, `filters`, and 
 <details>
 <summary>DataGridTable + low-level state (server-side, full control)</summary>
 
-For URL sync, custom toolbar, or full control over state, use `DataGridTable` with your own state. Implement **`IDataSource<T>`** with `fetchPage(IFetchParams)` and use **`toDataGridFilterProps(filters)`** to pass filter state to the grid. Legacy **`IDataGridDataSource`** (getPage + IDataGridQueryParams) is still supported but deprecated.
+For URL sync, custom toolbar, or full control over state, use `DataGridTable` with your own state. Implement **`IDataSource<T>`** with `fetchPage(IFetchParams)` and use **`toDataGridFilterProps(filters)`** to pass filter state to the grid.
 
 ```tsx
 import {
@@ -230,8 +226,7 @@ function ProductTable() {
   const [visibleColumns, setVisibleColumns] = useState(new Set(columns.map(c => c.columnId)));
   const { multiSelectFilters, textFilters, peopleFilters } = toDataGridFilterProps(filters);
 
-  const filterOptionsAdapter = { getFilterOptions: dataSource.fetchFilterOptions?.bind(dataSource), getPage: async () => ({ items: [], totalCount: 0 }) };
-  const { filterOptions, loadingOptions } = useFilterOptions(filterOptionsAdapter, ['category']);
+  const { filterOptions, loadingOptions } = useFilterOptions(dataSource, ['category']);
 
   useEffect(() => {
     dataSource.fetchPage({ page, pageSize, sort: sortBy ? { field: sortBy, direction: sortDirection } : undefined, filters })
@@ -316,7 +311,7 @@ const dataSource: IDataSource<Project> = {
 };
 ```
 
-For low-level control (e.g. URL sync), use `DataGridTable` + `PaginationControls` with your own state and `toDataGridFilterProps(filters)` to pass filter state to the grid. The legacy `IDataGridDataSource` / `IDataGridQueryParams` are still supported but deprecated in favor of `IDataSource` and `IFetchParams`.
+For low-level control (e.g. URL sync), use `DataGridTable` + `PaginationControls` with your own state and `toDataGridFilterProps(filters)` to pass filter state to the grid.
 
 ## Filtering patterns
 
@@ -329,13 +324,13 @@ For low-level control (e.g. URL sync), use `DataGridTable` + `PaginationControls
   - Use `filterable: { type: 'multiSelect', filterField?: string, optionsSource?: 'api' | 'static' | 'years', options?, yearsCount? }`.
   - Provide options via:
     - `optionsSource: 'static'` + `options: string[]`, or
-    - `optionsSource: 'api'` + `getFilterOptions(field)` on your `IDataGridDataSource`, or
+    - `optionsSource: 'api'` + `fetchFilterOptions(field)` on your `IDataSource`, or
     - `optionsSource: 'years'` + `yearsCount` for a recent-years list.
   - The grid calls `onMultiSelectFilterChange(filterField, values)` with the selected values.
 
 - **People filters**
   - Use `filterable: { type: 'people' }` for a people picker column.
-  - Implement `peopleSearch(query)` and optionally `getUserByEmail(email)` on your `IDataGridDataSource`.
+  - Implement `searchPeople(query)` and optionally `getUserByEmail(email)` on your `IDataSource`.
   - The grid will call `onPeopleFilterChange(filterField, user | undefined)` when the user selects or clears a person.
 
 ## Pagination behavior
@@ -428,6 +423,8 @@ The main data grid component with sorting and filtering built into column header
 | `loadingFilterOptions` | `Record<string, boolean>` | Yes | Loading state per filter field |
 | `peopleSearch` | `(query: string) => Promise<UserLike[]>` | No | People search function |
 | `getUserByEmail` | `(email: string) => Promise<UserLike \| undefined>` | No | Lookup user by email |
+| `isLoading` | `boolean` | No | Show loading overlay over the grid (e.g. server-side refresh) |
+| `loadingMessage` | `string` | No | Message shown in loading overlay. Default `"Loading…"`. |
 | `emptyState` | `{ onClearAll: () => void; hasActiveFilters: boolean; message?: React.ReactNode; render?: () => React.ReactNode }` | No | Empty state: `message` = custom text; `render` = custom content |
 | `aria-label` | `string` | No | Accessible name when no visible label |
 | `aria-labelledby` | `string` | No | ID of element that labels the grid (e.g. heading) |
@@ -475,7 +472,7 @@ Column header with sort indicator and filter popover. Used internally by `DataGr
 
 #### `useFilterOptions(dataSource, fields)`
 
-Loads filter options for multi-select columns. Expects an object with `getFilterOptions(field)` (e.g. legacy `IDataGridDataSource` or an adapter that wraps `IDataSource.fetchFilterOptions`).
+Loads filter options for multi-select columns. Accepts **`IDataSource<T>`** or any object with **`fetchFilterOptions(field)`**. No adapter needed.
 
 ```tsx
 const { filterOptions, loadingOptions } = useFilterOptions(dataSource, ['status', 'category']);
@@ -541,18 +538,6 @@ import { toDataGridFilterProps } from '@alaarab/fluent-data-table';
 const { multiSelectFilters, textFilters, peopleFilters } = toDataGridFilterProps(filters);
 ```
 
-#### `toLegacyFilters(filters)`
-
-Converts `IFilters` to `Record<string, string | string[]>` (e.g. for backend query params). UserLike values become their `email` string.
-
-#### `IDataGridDataSource<T>` (deprecated)
-
-Use **`IDataSource<T>`** instead. Legacy adapter: `getPage(params: IDataGridQueryParams)` and optional `getFilterOptions`, `peopleSearch`, `getUserByEmail`. Still supported for backward compatibility.
-
-#### `IDataGridQueryParams` (deprecated)
-
-Use **`IFetchParams`** and **`IFilters`** instead. Legacy params: `page`, `pageSize`, `sortBy`, `sortDirection`, `filters: Record<string, string | string[]>`.
-
 #### `IColumnDef<T>`
 
 Full column definition including render function.
@@ -603,7 +588,7 @@ interface UserLike {
 ### CSV Export Utilities
 
 ```typescript
-import { buildCsvHeader, buildCsvRows, triggerCsvDownload, exportToCsv } from './DataTable';
+import { buildCsvHeader, buildCsvRows, triggerCsvDownload, exportToCsv } from '@alaarab/fluent-data-table';
 
 // Export current page
 exportToCsv(items, columns, (item, colId) => item[colId], 'export.csv');
@@ -620,7 +605,7 @@ triggerCsvDownload(csv, 'export.csv');
 ```
 DataTable/
 ├── index.ts                      # Public exports
-├── dataGridTypes.ts              # IDataSource, IFetchParams, IFilters, IPageResult, toDataGridFilterProps, toLegacyFilters, UserLike; deprecated IDataGridDataSource, IDataGridQueryParams
+├── dataGridTypes.ts              # IDataSource, IFetchParams, IFilters, IPageResult, toDataGridFilterProps, UserLike
 ├── columnTypes.ts                # IColumnDef, IColumnFilterDef, IColumnMeta
 ├── exportToCsv.ts                # CSV export utilities
 ├── DataGridTable/
@@ -661,57 +646,12 @@ npm run storybook
 
 Use the **Theme** toolbar (Light/Dark) and **Viewport** (e.g. Desktop narrow 1024px, Desktop wide 1440px) to QA layout and theming.
 
-## Extracting to Standalone Package
+## Development
 
-When ready to publish:
-
-1. Run `npm run build` to compile TypeScript to `dist/esm` and emit types in `dist/types`.
-2. Run `npm run test:unit` (or full `npm test` for component tests).
-3. Run `npm run storybook` to validate behavior.
-4. Publish with:
-
-   ```bash
-   npm publish --access public
-   ```
-
-### Consuming from ProjectCenter (local linking)
-
-For local development with your `ProjectCenter` app:
-
-1. From this repo, build and pack:
-
-   ```bash
-   npm run build
-   npm pack
-   ```
-
-   This will create a tarball like `alaarab-fluent-data-table-1.2.0.tgz`.
-
-2. In `ProjectCenter`, install the tarball:
-
-   ```bash
-   cd ../ProjectCenter
-   npm install ../FluentDataTable/alaarab-fluent-data-table-1.2.0.tgz
-   ```
-
-   Or use a local path in `package.json`: `"@alaarab/fluent-data-table": "file:../FluentDataTable"`, then `npm install`.
-
-3. Update imports in `ProjectCenter` table code from local paths to the package:
-
-   ```ts
-   import {
-     DataGridTable,
-     PaginationControls,
-     useFilterOptions,
-     type IColumnDef,
-     type IDataSource,
-     type IFetchParams,
-     type IFilters,
-     toUserLike,
-   } from '@alaarab/fluent-data-table';
-   ```
-
-4. Run the existing Jest tests and SPFx build in `ProjectCenter` to verify everything still passes.
+- **Build:** `npm run build` (TypeScript → `dist/esm`, types → `dist/types`, SCSS compiled).
+- **Test:** `npm test`
+- **Storybook:** `npm run storybook` to try the grid and all options.
+- **Publish:** `npm publish --access public`
 
 ## Troubleshooting
 
@@ -720,7 +660,7 @@ For local development with your `ProjectCenter` app:
   - Ensure `visibleColumns` contains the `columnId`s you expect.
 
 - **Filters don’t affect data**
-  - Verify your `IDataGridDataSource.getPage` uses `params.filters` and `params.sortBy`/`sortDirection`.
+  - Verify your `IDataSource.fetchPage` uses `params.filters` and `params.sort`.
   - Ensure your filter handlers (`onMultiSelectFilterChange`, `onTextFilterChange`, `onPeopleFilterChange`) actually update the state you pass back into the grid.
 
 - **CSV export downloads an empty file**

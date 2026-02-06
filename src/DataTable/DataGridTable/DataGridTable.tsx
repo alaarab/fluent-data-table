@@ -10,6 +10,7 @@ import {
   TableColumnDefinition,
   createTableColumn,
   TableColumnSizingOptions,
+  Spinner,
 } from '@fluentui/react-components';
 import { ColumnHeaderFilter } from '../ColumnHeaderFilter';
 import type { IColumnDef } from '../columnTypes';
@@ -26,6 +27,11 @@ export interface IDataGridTableProps<T> {
   visibleColumns?: Set<string>;
 
   layoutMode?: 'content' | 'fill';
+
+  /** Show a loading overlay over the grid (AG Grid-style). */
+  isLoading?: boolean;
+  /** Custom loading message (default: "Loading…"). */
+  loadingMessage?: string;
 
   multiSelectFilters: Record<string, string[]>;
   onMultiSelectFilterChange: (key: string, values: string[]) => void;
@@ -62,6 +68,8 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
     sortDirection,
     onColumnSort,
     visibleColumns,
+    isLoading = false,
+    loadingMessage = 'Loading\u2026',
     multiSelectFilters,
     onMultiSelectFilterChange,
     textFilters = {},
@@ -353,33 +361,45 @@ export function DataGridTable<T>(props: IDataGridTableProps<T>): React.ReactElem
       }}
     >
       <div className={styles.tableScrollContent}>
-        <div className={styles.tableWidthAnchor}>
-          <DataGrid
-            items={items}
-            columns={fluentColumns}
-            resizableColumns
-            // Resizing UX:
-            // - In overflow mode, NEVER auto-fit (it fights user resize and can "snap" columns back to fit).
-            // - In fill mode, auto-fit is OK when we're not overflowing.
-            resizableColumnsOptions={{ autoFitColumns: layoutMode === 'fill' && !allowOverflowX }}
-            columnSizingOptions={columnSizingOptions}
-            getRowId={getRowId}
-            focusMode="composite"
-            className={styles.dataGrid}
-          >
-            <DataGridHeader>
-              <DataGridRow>
-                {({ renderHeaderCell }) => <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>}
-              </DataGridRow>
-            </DataGridHeader>
-            <DataGridBody<T>>
-              {({ item, rowId }) => (
-                <DataGridRow<T> key={rowId}>
-                  {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
-                </DataGridRow>
-              )}
-            </DataGridBody>
-          </DataGrid>
+        <div className={isLoading && items.length > 0 ? styles.loadingOverlayContainer : undefined}>
+          {isLoading && items.length > 0 && (
+            <div className={styles.loadingOverlay} aria-live="polite">
+              <div className={styles.loadingOverlayContent}>
+                <Spinner size="small" />
+                <span className={styles.loadingOverlayText}>{loadingMessage}</span>
+              </div>
+            </div>
+          )}
+          <div className={isLoading && items.length > 0 ? styles.loadingDimmed : undefined}>
+            <div className={styles.tableWidthAnchor}>
+              <DataGrid
+                items={items}
+                columns={fluentColumns}
+                resizableColumns
+                // Resizing UX:
+                // - In overflow mode, NEVER auto-fit (it fights user resize and can "snap" columns back to fit).
+                // - In fill mode, auto-fit is OK when we're not overflowing.
+                resizableColumnsOptions={{ autoFitColumns: layoutMode === 'fill' && !allowOverflowX }}
+                columnSizingOptions={columnSizingOptions}
+                getRowId={getRowId}
+                focusMode="composite"
+                className={styles.dataGrid}
+              >
+                <DataGridHeader>
+                  <DataGridRow>
+                    {({ renderHeaderCell }) => <DataGridHeaderCell>{renderHeaderCell()}</DataGridHeaderCell>}
+                  </DataGridRow>
+                </DataGridHeader>
+                <DataGridBody<T>>
+                  {({ item, rowId }) => (
+                    <DataGridRow<T> key={rowId}>
+                      {({ renderCell }) => <DataGridCell>{renderCell(item)}</DataGridCell>}
+                    </DataGridRow>
+                  )}
+                </DataGridBody>
+              </DataGrid>
+            </div>
+          </div>
         </div>
         {showEmptyInGrid && emptyState && (
           <div className={styles.emptyStateInGrid}>

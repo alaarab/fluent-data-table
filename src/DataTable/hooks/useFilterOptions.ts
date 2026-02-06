@@ -1,20 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { IDataGridDataSource } from '../dataGridTypes';
+import type { IDataSource } from '../dataGridTypes';
 
 export interface UseFilterOptionsResult {
   filterOptions: Record<string, string[]>;
   loadingOptions: Record<string, boolean>;
 }
 
+/** Accepted data source shapes for useFilterOptions. */
+type FilterOptionsSource =
+  | IDataSource<unknown>
+  | { fetchFilterOptions?: (field: string) => Promise<string[]> };
+
+/**
+ * Load filter options for the given fields from a data source.
+ *
+ * Accepts `IDataSource<T>` or a plain `{ fetchFilterOptions }` object.
+ */
 export function useFilterOptions(
-  dataSource: IDataGridDataSource<unknown>,
+  dataSource: FilterOptionsSource,
   fields: string[]
 ): UseFilterOptionsResult {
   const [filterOptions, setFilterOptions] = useState<Record<string, string[]>>({});
   const [loadingOptions, setLoadingOptions] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async (): Promise<void> => {
-    if (!dataSource.getFilterOptions) {
+    const fetcher =
+      'fetchFilterOptions' in dataSource && typeof dataSource.fetchFilterOptions === 'function'
+        ? dataSource.fetchFilterOptions.bind(dataSource)
+        : undefined;
+
+    if (!fetcher) {
       setFilterOptions({});
       setLoadingOptions({});
       return;
@@ -27,7 +42,7 @@ export function useFilterOptions(
     await Promise.all(
       fields.map(async (field) => {
         try {
-          results[field] = await dataSource.getFilterOptions!(field);
+          results[field] = await fetcher(field);
         } catch (e) {
           console.error(`Error loading filter options for ${field}:`, e);
           results[field] = [];
@@ -37,6 +52,7 @@ export function useFilterOptions(
 
     setFilterOptions(results);
     setLoadingOptions({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataSource, fields.slice().sort().join(',')]);
 
   useEffect(() => {

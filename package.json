@@ -1,6 +1,6 @@
 {
   "name": "@alaarab/fluent-data-table",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Full-featured Fluent UI DataGrid-based data table (sorting, filtering, pagination, column chooser, CSV export).",
   "main": "dist/esm/index.js",
   "module": "dist/esm/index.js",

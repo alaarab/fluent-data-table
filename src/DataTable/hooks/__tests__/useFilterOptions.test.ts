@@ -2,7 +2,7 @@ import * as React from 'react';
 import { act } from '@testing-library/react';
 import { createRoot, type Root } from 'react-dom/client';
 import { useFilterOptions } from '../useFilterOptions';
-import type { IDataGridDataSource } from '../../dataGridTypes';
+import type { IDataSource } from '../../dataGridTypes';
 
 describe('useFilterOptions', () => {
   let container: HTMLDivElement;
@@ -29,14 +29,14 @@ describe('useFilterOptions', () => {
     dataSource,
     fields,
   }: {
-    dataSource: IDataGridDataSource<unknown>;
+    dataSource: IDataSource<unknown>;
     fields: string[];
   }): React.ReactElement {
     const result = useFilterOptions(dataSource, fields);
     return React.createElement('pre', { 'data-testid': 'result' }, JSON.stringify(result));
   }
 
-  function renderAndGetResult(dataSource: IDataGridDataSource<unknown>, fields: string[]): unknown {
+  function renderAndGetResult(dataSource: IDataSource<unknown>, fields: string[]): unknown {
     act(() => {
       root.render(React.createElement(Harness, { dataSource, fields }));
     });
@@ -44,11 +44,11 @@ describe('useFilterOptions', () => {
     return pre ? JSON.parse(pre.textContent || '{}') : {};
   }
 
-  const minimalDataSource = (): IDataGridDataSource<unknown> => ({
-    getPage: jest.fn().mockResolvedValue({ items: [], totalCount: 0 }),
+  const minimalDataSource = (): IDataSource<unknown> => ({
+    fetchPage: jest.fn().mockResolvedValue({ items: [], totalCount: 0 }),
   });
 
-  it('returns empty filterOptions and loadingOptions when getFilterOptions is missing', async () => {
+  it('returns empty filterOptions and loadingOptions when fetchFilterOptions is missing', async () => {
     const dataSource = minimalDataSource();
     renderAndGetResult(dataSource, ['a', 'b']);
     await act(async () => {
@@ -59,11 +59,11 @@ describe('useFilterOptions', () => {
     expect(after.loadingOptions).toEqual({});
   });
 
-  it('loads filter options via getFilterOptions and populates filterOptions', async () => {
+  it('loads filter options via fetchFilterOptions and populates filterOptions', async () => {
     const resolvers: Record<string, (v: string[]) => void> = {};
-    const dataSource: IDataGridDataSource<unknown> = {
+    const dataSource: IDataSource<unknown> = {
       ...minimalDataSource(),
-      getFilterOptions: jest.fn((field: string) => new Promise((resolve) => { resolvers[field] = resolve; })),
+      fetchFilterOptions: jest.fn((field: string) => new Promise((resolve) => { resolvers[field] = resolve; })),
     };
     renderAndGetResult(dataSource, ['client', 'stage']);
 
@@ -76,8 +76,8 @@ describe('useFilterOptions', () => {
     const after = JSON.parse(container.querySelector('[data-testid="result"]')?.textContent || '{}');
     expect(after.filterOptions).toEqual({ client: ['Acme', 'Beta'], stage: ['Active', 'Closed'] });
     expect(after.loadingOptions).toEqual({});
-    expect(dataSource.getFilterOptions).toHaveBeenCalledWith('client');
-    expect(dataSource.getFilterOptions).toHaveBeenCalledWith('stage');
+    expect(dataSource.fetchFilterOptions).toHaveBeenCalledWith('client');
+    expect(dataSource.fetchFilterOptions).toHaveBeenCalledWith('stage');
   });
 
   it('sets loadingOptions to true before resolvers complete, then false after', async () => {
@@ -85,9 +85,9 @@ describe('useFilterOptions', () => {
     let resolveStage: (v: string[]) => void;
     const clientPromise = new Promise<string[]>((r) => { resolveClient = r; });
     const stagePromise = new Promise<string[]>((r) => { resolveStage = r; });
-    const dataSource: IDataGridDataSource<unknown> = {
+    const dataSource: IDataSource<unknown> = {
       ...minimalDataSource(),
-      getFilterOptions: jest.fn((field: string) => (field === 'client' ? clientPromise : stagePromise)),
+      fetchFilterOptions: jest.fn((field: string) => (field === 'client' ? clientPromise : stagePromise)),
     };
     renderAndGetResult(dataSource, ['client', 'stage']);
 
@@ -106,10 +106,10 @@ describe('useFilterOptions', () => {
     expect(after.filterOptions).toEqual({ client: ['Acme'], stage: ['Active'] });
   });
 
-  it('sets a field to empty array when getFilterOptions throws', async () => {
-    const dataSource: IDataGridDataSource<unknown> = {
+  it('sets a field to empty array when fetchFilterOptions throws', async () => {
+    const dataSource: IDataSource<unknown> = {
       ...minimalDataSource(),
-      getFilterOptions: jest.fn((field: string) =>
+      fetchFilterOptions: jest.fn((field: string) =>
         field === 'bad' ? Promise.reject(new Error('fail')) : Promise.resolve(['ok'])
       ),
     };
